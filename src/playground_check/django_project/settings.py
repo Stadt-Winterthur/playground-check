@@ -10,7 +10,13 @@ SECRET_KEY = legacy_settings.security_key
 DEBUG = False
 ALLOWED_HOSTS = ["*"]  # Transitional only: host filtering remains at the reverse proxy.
 ROOT_URLCONF = "playground_check.django_project.urls"
-INSTALLED_APPS = []
+INSTALLED_APPS = ["rest_framework"]
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_PERMISSION_CLASSES": [],
+    "UNAUTHENTICATED_USER": None,
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+}
 MIDDLEWARE = []
 DATABASES = {}
 USE_TZ = True

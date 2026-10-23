@@ -19,15 +19,23 @@ def application(environ, start_response):
     path = environ.get("PATH_INFO", "")
     # PATH_INFO can include the configured PathBase in the existing deployment.
     base = legacy_settings.base_path
-    django_path = f"{base}/__django/health"
-    if path in {django_path, django_path + "/"}:
+    # Only these GET routes have moved; POST/PUT/DELETE still use legacy WSGI.
+    migrated = (
+        "/__django/health",
+        "/api/health",
+        "/Collections/Playgrounds/Items/",
+    )
+    relative_path = path[len(base):] if base and path.startswith(base + "/") else path
+    route = relative_path.rstrip("/")
+    if environ.get("REQUEST_METHOD", "GET").upper() == "GET" and any(
+        route.casefold() == candidate.rstrip("/").casefold() for candidate in migrated
+    ):
         # Django receives a path without the external application's PathBase.
+        environ = dict(environ)
         if base:
-            environ = dict(environ)
             environ["SCRIPT_NAME"] = (environ.get("SCRIPT_NAME", "") or "") + base
-            environ["PATH_INFO"] = path[len(base):]
-        if environ["PATH_INFO"].endswith("/"):
-            environ = dict(environ)
-            environ["PATH_INFO"] = environ["PATH_INFO"].rstrip("/")
+        # Normalize case and slash variants to Django's declared canonical URL.
+        target = next(item for item in migrated if route.casefold() == item.rstrip("/").casefold())
+        environ["PATH_INFO"] = target
         return _django_application(environ, start_response)
     return legacy_application(environ, start_response)

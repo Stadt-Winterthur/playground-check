@@ -17,7 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 production = ["gunicorn==23.0.0"]
-django = ["Django>=5.2,<6"]
+django = ["Django>=5.2,<6", "djangorestframework>=3.16,<4"]
 
 [project.scripts]
 playground-check = "playground_check.server:main"
