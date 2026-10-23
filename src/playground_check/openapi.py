@@ -177,10 +177,10 @@ def build_openapi_document() -> dict:
                 "responses": {"200": {"description": "Success"}},
             },
         },
-        "/Defect/{tid}/infomail-sent": {
+        "/Defect/{tid}/send-mail": {
             "post": {
                 "tags": ["Defect"],
-                "summary": "Mark info mail as sent",
+                "summary": "Send defect info mail via local SMTP",
                 "parameters": [_param("tid", "path", "integer", True), _param("dryRun", "query", "boolean")],
                 "responses": {"200": {"description": "Success"}},
             }

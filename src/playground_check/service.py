@@ -1105,22 +1105,65 @@ def assignment_status(request: Request, accepted: bool) -> Response:
     return Response.json({"errorMessage": "" if cursor.rowcount == 1 else "SPK-3"})
 
 
-def mark_info_mail(request: Request) -> Response:
-    _, error = require_user(request)
+def send_info_mail(request: Request) -> Response:
+    # Send a defect notification using server-side recipient data.
+    user, error = require_user(request)
     if error:
         return error
     tid = int(request.params["tid"])
-    with connect() as db:
-        cursor = db.execute('''UPDATE "wgr_sp_insp_mangel" mangel
-            SET infomail_gesendet_am=CURRENT_TIMESTAMP,
-                infomail_empfaenger=TRIM(CONCAT(kontrolleur.vorname, ' ', kontrolleur.nachname))
-            FROM "wgr_sp_kontrolleur" kontrolleur
-            WHERE mangel.tid=%s AND kontrolleur.fid=mangel.fid_zustaendig_kontrolleur''', (tid,))
-        if cursor.rowcount != 1:
-            return Response.text("Die Infomail konnte nicht protokolliert werden.", 400)
-        row = db.execute(DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
-        result = _defect_dict(db, row) if row else None
-    return Response.json(result)
+    from .mail_service import MailAttachment, compose_defect_mail, deliver, MailConfigurationError
+
+    try:
+        with connect() as db:
+            row = db.execute(DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
+            if not row:
+                return Response.text("Mangel nicht gefunden.", 404)
+            recipient = db.execute('''SELECT fid, TRIM(CONCAT(vorname, ' ', nachname)) AS name,
+                TRIM(LOWER(e_mail)) AS email, aktiv AS active
+                FROM "wgr_sp_kontrolleur" WHERE fid=%s''', (row.get("responsible_user_fid"),)).fetchone()
+            if not recipient or not recipient.get("active") or not recipient.get("email") or not _valid_mail_address(recipient["email"]):
+                return Response.text("Die zuständige Person hat keine gültige aktive E-Mail-Adresse.", 400)
+            device_row = db.execute('''SELECT sp.name AS playground_name,
+                TRIM(CONCAT(COALESCE(sp.strassenname,''), ' ', COALESCE(sp.hausnummer,''))) AS address,
+                gart.value AS device_type, lief.name AS supplier, geraet.bau_dat AS construction_date,
+                geraet.bemerkungen AS device_comment
+                FROM "gr_v_spielgeraete" geraet
+                JOIN "wgr_sp_spielplatz" sp ON sp.fid=geraet.fid_spielplatz
+                LEFT JOIN "wgr_sp_spielgeraeteart_tbd" gart ON geraet.id_geraeteart=gart.id
+                LEFT JOIN "wgr_sp_lieferant" lief ON geraet.id_lieferant=lief.fid
+                WHERE geraet.fid=%s''', (row["playdevice_fid"],)).fetchone()
+            if not device_row:
+                return Response.text("Zugehöriges Spielgerät nicht gefunden.", 404)
+            picture_rows = db.execute('''SELECT tid, picture_base64 AS picture
+                FROM "wgr_sp_insp_mangel_foto" WHERE tid_maengel=%s ORDER BY tid''', (tid,)).fetchall()
+            attachments = []
+            for index, picture in enumerate(picture_rows, 1):
+                data, mime = _decode_image(picture.get("picture"))
+                if data:
+                    if mime not in ALLOWED_IMAGE_MIME_TYPES:
+                        return Response.text("Ungültiger Bildtyp in den Mängelfotos.", 400)
+                    ext = {"image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp"}[mime]
+                    attachments.append(MailAttachment(f"Mangel-{tid}-Foto-{index}.{ext}", mime, data))
+            message = compose_defect_mail(row, device_row, recipient, user, attachments)
+            recipient_fid = recipient["fid"]
+        # No database transaction is held open during the external SMTP call.
+        deliver(message, recipient["email"])
+        with connect() as db:
+            db.execute('''UPDATE "wgr_sp_insp_mangel" SET
+                infomail_gesendet_am=CURRENT_TIMESTAMP, infomail_empfaenger=%s
+                WHERE tid=%s AND fid_zustaendig_kontrolleur=%s''',
+                (recipient["name"], tid, recipient_fid))
+            updated = db.execute(DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
+            result = _defect_dict(db, updated) if updated else None
+        return Response.json(result)
+    except (OSError, TimeoutError, MailConfigurationError, __import__("smtplib").SMTPException) as exc:
+        import logging
+        logging.getLogger(__name__).error("Infomail for defect %s failed: %s", tid, exc)
+        return Response.text("Infomail konnte nicht an den Mailserver übergeben werden.", 502)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Infomail error for defect %s", tid)
+        return Response.text("Infomail konnte nicht abgeschlossen werden. Bitte Versandstatus prüfen.", 500)
 
 
 def _decode_image(value: bytes | str | None) -> tuple[bytes | None, str | None]:

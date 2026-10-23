@@ -57,7 +57,7 @@ def create_router() -> Router:
     router.add("GET", r"/Defect/?", service.get_defect)
     router.add("POST", r"/Defect/?", service.update_defect)
     router.add("PUT", r"/Defect/?", service.create_defect)
-    router.add("POST", r"/Defect/(?P<tid>\d+)/infomail-sent/?", service.mark_info_mail)
+    router.add("POST", r"/Defect/(?P<tid>\d+)/send-mail/?", service.send_info_mail)
     router.add("POST", r"/Defect/(?P<tid>\d+)/accept/?", lambda r: service.assignment_status(r, True))
     router.add("POST", r"/Defect/(?P<tid>\d+)/reject/?", lambda r: service.assignment_status(r, False))
     router.add("GET", r"/Defect/Picture/(?P<tid>\d+)/?", service.get_defect_picture)
