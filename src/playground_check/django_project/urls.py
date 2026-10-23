@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from .views import django_health, health, public_playgrounds, inspection_types, renovation_types
+from .views import django_health, health, public_playgrounds, inspection_types, renovation_types, public_playground_detail, playground_by_name
 
 urlpatterns = [
     path("__django/health", django_health, name="django-health"),
@@ -10,4 +10,6 @@ urlpatterns = [
     path("Inspection/types/", inspection_types, name="inspection-types"),
     path("Inspection/renovationtypes/", renovation_types, name="renovation-types"),
     path("Collections/Playgrounds/Items/", public_playgrounds, name="public-playgrounds"),
+    path("Collections/Playgrounds/Items/<str:uuid>/", public_playground_detail, name="public-playground-detail"),
+    path("Playground/byname/", playground_by_name, name="playground-by-name"),
 ]

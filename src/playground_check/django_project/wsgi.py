@@ -24,20 +24,27 @@ def application(environ, start_response):
         "/__django/health",
         "/api/health",
         "/Inspection/types/",
+        "/Playground/byname/",
         "/Inspection/renovationtypes/",
         "/Collections/Playgrounds/Items/",
     )
     relative_path = path[len(base):] if base and path.startswith(base + "/") else path
     route = relative_path.rstrip("/")
-    if environ.get("REQUEST_METHOD", "GET").upper() == "GET" and any(
+    public_detail_prefix = "/Collections/Playgrounds/Items/"
+    is_public_detail = route.casefold().startswith(public_detail_prefix.casefold()) and (
+        len(route) > len(public_detail_prefix) and "/" not in route[len(public_detail_prefix):]
+    )
+    if environ.get("REQUEST_METHOD", "GET").upper() == "GET" and (is_public_detail or any(
         route.casefold() == candidate.rstrip("/").casefold() for candidate in migrated
-    ):
+    )):
         # Django receives a path without the external application's PathBase.
         environ = dict(environ)
         if base:
             environ["SCRIPT_NAME"] = (environ.get("SCRIPT_NAME", "") or "") + base
         # Normalize case and slash variants to Django's declared canonical URL.
-        target = next(item for item in migrated if route.casefold() == item.rstrip("/").casefold())
+        target = (public_detail_prefix + route[len(public_detail_prefix):] + "/") if is_public_detail else next(
+            item for item in migrated if route.casefold() == item.rstrip("/").casefold()
+        )
         environ["PATH_INFO"] = target
         return _django_application(environ, start_response)
     return legacy_application(environ, start_response)

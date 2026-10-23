@@ -803,10 +803,8 @@ def _playground_result(db: Connection, row: Mapping[str, Any], inspection_type: 
     }
 
 
-def get_playground_by_name(request: Request) -> Response:
-    _, error = require_user(request)
-    if error:
-        return error
+def playground_by_name_data(query: Mapping[str, str]) -> dict[str, Any]:
+    """Return the established detail payload independently of the HTTP framework."""
     with connect() as db:
         row = db.execute('''SELECT sp.fid AS id, sp.name,
             sp.inspektion_aussetzen_von AS suspend_from,
@@ -818,13 +816,19 @@ def get_playground_by_name(request: Request) -> Response:
               ON insp_max.fid_spielplatz=sp.fid
             LEFT JOIN "wgr_sp_inspektion" insp
               ON insp.fid_spielplatz=insp_max.fid_spielplatz AND insp.datum_inspektion=insp_max.max_datum
-            WHERE sp.name=%s LIMIT 1''', (request.query.get("name", ""),)).fetchone()
+            WHERE sp.name=%s LIMIT 1''', (query.get("name", ""),)).fetchone()
         if not row:
             raise LookupError("Sequence contains no elements")
-        inspection = request.query.get("inspectiontype", request.query.get("inspectionType", ""))
-        result = _playground_result(db, row, inspection, _bool(request.query.get("withdefects")), _bool(request.query.get("withinspections")))
-    return Response.json(result)
+        inspection = query.get("inspectiontype", query.get("inspectionType", ""))
+        result = _playground_result(db, row, inspection, _bool(query.get("withdefects")), _bool(query.get("withinspections")))
+    return result
 
+
+def get_playground_by_name(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    return Response.json(playground_by_name_data(request.query))
 
 def invalid_playground_id(request: Request) -> Response:
     _, error = require_user(request)

@@ -25,3 +25,10 @@ Weitere API-Endpunkte werden erst nach kontraktgleichen Tests umgestellt.
 - Erfolgsantworten, HTTP-401-Textantworten und SQL-Abfragen bleiben kompatibel.
 - Sonstige Methoden bleiben an den Legacy-Handler delegiert.
 - Schreiboperationen und TID/FID-Vergabe bleiben unberührt.
+
+### Spielplatzdetails (nächste Etappe)
+
+- `GET /Collections/Playgrounds/Items/<uuid>/` wird über DRF ausgeliefert. Das bisherige GeoJSON einschliesslich der Fehlerobjekte bleibt erhalten.
+- `GET /Playground/byname/` wird über DRF ausgeliefert. Die bestehende Token-/Benutzerprüfung bleibt aktiv; die Detailaufbereitung ist als `playground_by_name_data(query)` von der HTTP-Antwort getrennt und wird von Legacy und DRF gemeinsam genutzt.
+- Andere Spielplatzrouten und alle Schreiboperationen verbleiben in der bisherigen WSGI-App. Insbesondere `GET /Playground/<id>/` wird wegen des dokumentierten Legacy-Kompatibilitätsverhaltens noch nicht migriert.
+- Keine Änderungen an PostgreSQL-Schema, TID-/FID-Vergabe oder dem SMTP-Mailversand.
