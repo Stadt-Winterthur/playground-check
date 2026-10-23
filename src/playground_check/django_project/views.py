@@ -2,9 +2,8 @@
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from django.http import HttpResponse
+from .access import authenticated_legacy_user
 
-from playground_check.http import Request as LegacyRequest
 from playground_check.service import require_user, playground_only_names_data, playground_by_device_data
 
 from playground_check import __version__
@@ -43,10 +42,8 @@ def public_playgrounds(request):
 
 def _legacy_access_error(request):
     """Keep the existing token, dryRun, and database user checks intact."""
-    _, error = require_user(LegacyRequest(request._request.META))
-    if error is None:
-        return None
-    return HttpResponse(error.body, status=error.status, content_type=error.content_type)
+    _, error = authenticated_legacy_user(request, require_user)
+    return error
 
 
 @api_view(["GET"])
@@ -111,9 +108,9 @@ def playground_by_name(request):
 @permission_classes([])
 def playground_only_names(request):
     # The returned user is needed for the inspector-specific SQL filter.
-    user, error = require_user(LegacyRequest(request._request.META))
+    user, error = authenticated_legacy_user(request, require_user)
     if error is not None:
-        return HttpResponse(error.body, status=error.status, content_type=error.content_type)
+        return error
     query = {key: values[-1] for key, values in request.query_params.lists()}
     return Response(playground_only_names_data(user, query))
 

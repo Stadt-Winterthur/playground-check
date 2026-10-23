@@ -40,3 +40,11 @@ Weitere API-Endpunkte werden erst nach kontraktgleichen Tests umgestellt.
 - Token-/Benutzerkontrolle, die nach Benutzer gefilterte Namensliste und Antworten für fehlende Geräte bleiben erhalten.
 - `GET /Playground/<id>/` bleibt vorerst Legacy: Der bewusst erhaltene Kompatibilitätsfehler wird nicht stillschweigend geändert.
 - Schreiboperationen, SMTP-Versand und TID-/FID-Vergabe bleiben unverändert.
+
+### Einheitliche Authentifizierungsbrücke (nächster Schritt)
+
+`django_project/access.py` bündelt die Übergabe von DRF-Requests an die
+bestehende `require_user`-Prüfung. Bestehende Bearer-Token, Benutzerabgleich
+mit PostgreSQL und bisherige Klartext-Fehlerantworten bleiben unverändert.
+Eine Umstellung auf native DRF-Authentifizierung erfolgt erst separat und
+mit passenden Vergleichstests; es werden keine Django-User-Tabellen angelegt.
