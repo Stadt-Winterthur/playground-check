@@ -14,3 +14,6 @@ htmlcov/
 
 # Environment
 .env
+
+# Python package metadata
+*.egg-info/

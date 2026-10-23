@@ -200,7 +200,7 @@ def require_user(request: Request, role: str | None = None) -> tuple[dict[str, A
 def _valid_mail_address(value: str) -> bool:
     try:
         parsed = Address(addr_spec=value)
-    except (TypeError, ValueError, HeaderParseError):
+    except (TypeError, ValueError, HeaderParseError, IndexError):
         return False
     return parsed.addr_spec == value
 
