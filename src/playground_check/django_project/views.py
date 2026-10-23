@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 
 from playground_check.http import Request as LegacyRequest
-from playground_check.service import require_user
+from playground_check.service import require_user, playground_only_names_data, playground_by_device_data
 
 from playground_check import __version__
 from playground_check.db import connect
@@ -104,3 +104,25 @@ def playground_by_name(request):
         return error
     query = {key: values[-1] for key, values in request.query_params.lists()}
     return Response(playground_by_name_data(query))
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def playground_only_names(request):
+    # The returned user is needed for the inspector-specific SQL filter.
+    user, error = require_user(LegacyRequest(request._request.META))
+    if error is not None:
+        return HttpResponse(error.body, status=error.status, content_type=error.content_type)
+    query = {key: values[-1] for key, values in request.query_params.lists()}
+    return Response(playground_only_names_data(user, query))
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def playground_by_device(request, fid: int):
+    error = _legacy_access_error(request)
+    if error is not None:
+        return error
+    return Response(playground_by_device_data(fid))

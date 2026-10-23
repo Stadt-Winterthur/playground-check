@@ -25,16 +25,19 @@ def application(environ, start_response):
         "/api/health",
         "/Inspection/types/",
         "/Playground/byname/",
+        "/Playground/onlynames/",
         "/Inspection/renovationtypes/",
         "/Collections/Playgrounds/Items/",
     )
     relative_path = path[len(base):] if base and path.startswith(base + "/") else path
     route = relative_path.rstrip("/")
     public_detail_prefix = "/Collections/Playgrounds/Items/"
+    device_prefix = "/Playground/byplaydevice/"
+    is_device_lookup = route.casefold().startswith(device_prefix.casefold()) and route[len(device_prefix):].isdigit()
     is_public_detail = route.casefold().startswith(public_detail_prefix.casefold()) and (
         len(route) > len(public_detail_prefix) and "/" not in route[len(public_detail_prefix):]
     )
-    if environ.get("REQUEST_METHOD", "GET").upper() == "GET" and (is_public_detail or any(
+    if environ.get("REQUEST_METHOD", "GET").upper() == "GET" and (is_public_detail or is_device_lookup or any(
         route.casefold() == candidate.rstrip("/").casefold() for candidate in migrated
     )):
         # Django receives a path without the external application's PathBase.
@@ -42,9 +45,12 @@ def application(environ, start_response):
         if base:
             environ["SCRIPT_NAME"] = (environ.get("SCRIPT_NAME", "") or "") + base
         # Normalize case and slash variants to Django's declared canonical URL.
-        target = (public_detail_prefix + route[len(public_detail_prefix):] + "/") if is_public_detail else next(
-            item for item in migrated if route.casefold() == item.rstrip("/").casefold()
-        )
+        if is_public_detail:
+            target = public_detail_prefix + route[len(public_detail_prefix):] + "/"
+        elif is_device_lookup:
+            target = device_prefix + route[len(device_prefix):] + "/"
+        else:
+            target = next(item for item in migrated if route.casefold() == item.rstrip("/").casefold())
         environ["PATH_INFO"] = target
         return _django_application(environ, start_response)
     return legacy_application(environ, start_response)

@@ -32,3 +32,11 @@ Weitere API-Endpunkte werden erst nach kontraktgleichen Tests umgestellt.
 - `GET /Playground/byname/` wird über DRF ausgeliefert. Die bestehende Token-/Benutzerprüfung bleibt aktiv; die Detailaufbereitung ist als `playground_by_name_data(query)` von der HTTP-Antwort getrennt und wird von Legacy und DRF gemeinsam genutzt.
 - Andere Spielplatzrouten und alle Schreiboperationen verbleiben in der bisherigen WSGI-App. Insbesondere `GET /Playground/<id>/` wird wegen des dokumentierten Legacy-Kompatibilitätsverhaltens noch nicht migriert.
 - Keine Änderungen an PostgreSQL-Schema, TID-/FID-Vergabe oder dem SMTP-Mailversand.
+
+### Weitere geschützte Spielplatz-Leseoperationen
+
+- `GET /Playground/onlynames/` und `GET /Playground/byplaydevice/<fid>/` laufen über DRF.
+- Die SQL- und Antwortlogik liegt in gemeinsam genutzten Funktionen in `service.py`.
+- Token-/Benutzerkontrolle, die nach Benutzer gefilterte Namensliste und Antworten für fehlende Geräte bleiben erhalten.
+- `GET /Playground/<id>/` bleibt vorerst Legacy: Der bewusst erhaltene Kompatibilitätsfehler wird nicht stillschweigend geändert.
+- Schreiboperationen, SMTP-Versand und TID-/FID-Vergabe bleiben unverändert.

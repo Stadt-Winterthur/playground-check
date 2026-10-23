@@ -415,7 +415,12 @@ def only_names(request: Request) -> Response:
     user, error = require_user(request)
     if error:
         return error
-    inspection_type = request.query.get("inspectiontype", request.query.get("inspectionType", ""))
+    return Response.json(playground_only_names_data(user, request.query))
+
+
+def playground_only_names_data(user: Mapping[str, Any] | None, query: Mapping[str, str]) -> list[dict[str, Any]]:
+    """Existing filtered playground list without any HTTP framework dependencies."""
+    inspection_type = query.get("inspectiontype", query.get("inspectionType", ""))
     params: tuple[Any, ...] = ()
     sql = '''SELECT DISTINCT ON (sp.name)
         sp.name, insp.datum_inspektion AS date_of_last_inspection,
@@ -863,9 +868,13 @@ def get_playground_by_device(request: Request) -> Response:
     _, error = require_user(request)
     if error:
         return error
-    fid = int(request.params["fid"])
+    return Response.json(playground_by_device_data(int(request.params["fid"])))
+
+
+def playground_by_device_data(fid: int) -> dict[str, Any]:
+    """Read-only device lookup shared by legacy WSGI and DRF."""
     if fid <= 0:
-        return Response.json({"id": 0, "name": "", "address": "", "playdevices": []})
+        return {"id": 0, "name": "", "address": "", "playdevices": []}
     with connect() as db:
         row = db.execute('''SELECT sp.fid AS id, sp.name,
             TRIM(CONCAT(COALESCE(sp.strassenname,''), ' ', COALESCE(sp.hausnummer,''))) AS address,
@@ -874,16 +883,16 @@ def get_playground_by_device(request: Request) -> Response:
             FROM "gr_v_spielgeraete" geraet JOIN "wgr_sp_spielplatz" sp ON sp.fid=geraet.fid_spielplatz
             WHERE geraet.fid=%s''', (fid,)).fetchone()
         if not row:
-            return Response.json({"id": 0, "name": "", "address": "", "playdevices": []})
+            return {"id": 0, "name": "", "address": "", "playdevices": []}
         devices = [_playdevice(db, item, "", False, False) for item in _playdevice_rows(db, row["id"]) if item["fid"] == fid]
-    return Response.json({
+    return {
         "id": row["id"], "name": row.get("name") or "", "address": row.get("address") or "",
         "dateOfLastInspection": DOTNET_MIN_DATE, "suspendInspectionFrom": None, "suspendInspectionTo": None,
         "inspectionSuspended": False, "hasOpenDeviceDefects": False, "playdevices": devices,
         "defectPriorityOptions": [], "inspectionTypeOptions": [], "renovationTypeOptions": [],
         "defectsResponsibleBodyOptions": [], "chosenTypeOfInspection": "",
         "documentsOfAcceptanceFids": [], "certificateDocumentsFids": [],
-    })
+    }
 
 
 def save_playdevice(request: Request) -> Response:
