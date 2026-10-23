@@ -23,6 +23,8 @@ def application(environ, start_response):
     migrated = (
         "/__django/health",
         "/api/health",
+        "/Inspection/types/",
+        "/Inspection/renovationtypes/",
         "/Collections/Playgrounds/Items/",
     )
     relative_path = path[len(base):] if base and path.startswith(base + "/") else path

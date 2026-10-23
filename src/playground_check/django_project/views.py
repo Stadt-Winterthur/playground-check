@@ -2,6 +2,10 @@
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
+from django.http import HttpResponse
+
+from playground_check.http import Request as LegacyRequest
+from playground_check.service import require_user
 
 from playground_check import __version__
 from playground_check.db import connect
@@ -35,3 +39,35 @@ def public_playgrounds(request):
         return Response([_public_feature(row) for row in rows])
     except Exception:
         return Response([_public_feature(error="Unknown critical error.")])
+
+
+def _legacy_access_error(request):
+    """Keep the existing token, dryRun, and database user checks intact."""
+    _, error = require_user(LegacyRequest(request._request.META))
+    if error is None:
+        return None
+    return HttpResponse(error.body, status=error.status, content_type=error.content_type)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def inspection_types(request):
+    error = _legacy_access_error(request)
+    if error is not None:
+        return error
+    with connect() as db:
+        rows = db.execute('SELECT short_value, value FROM "wgr_sp_inspektionsart_tbd"').fetchall()
+    return Response([f"{row['value']} ({row['short_value']})" for row in rows])
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def renovation_types(request):
+    error = _legacy_access_error(request)
+    if error is not None:
+        return error
+    with connect() as db:
+        rows = db.execute('SELECT value FROM "wgr_sp_sanierungsart_tbd"').fetchall()
+    return Response([row["value"] for row in rows])

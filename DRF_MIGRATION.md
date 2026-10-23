@@ -17,3 +17,11 @@ Tests: `python -m unittest discover -s tests -v`.
 Optionale lokale Ausführung: `gunicorn --bind 127.0.0.1:8011 playground_check.django_project.wsgi:application`.
 
 Weitere API-Endpunkte werden erst nach kontraktgleichen Tests umgestellt.
+
+## Weiterer Schritt: geschützte Auswahllisten
+
+- `GET /Inspection/types/` und `GET /Inspection/renovationtypes/` werden über DRF abgewickelt.
+- Authentifizierung und Autorisierung laufen weiterhin über `service.require_user` einschließlich DB-Abgleich und `dryRun`-Verhalten.
+- Erfolgsantworten, HTTP-401-Textantworten und SQL-Abfragen bleiben kompatibel.
+- Sonstige Methoden bleiben an den Legacy-Handler delegiert.
+- Schreiboperationen und TID/FID-Vergabe bleiben unberührt.
