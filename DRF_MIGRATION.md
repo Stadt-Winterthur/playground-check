@@ -48,3 +48,13 @@ bestehende `require_user`-Prüfung. Bestehende Bearer-Token, Benutzerabgleich
 mit PostgreSQL und bisherige Klartext-Fehlerantworten bleiben unverändert.
 Eine Umstellung auf native DRF-Authentifizierung erfolgt erst separat und
 mit passenden Vergleichstests; es werden keine Django-User-Tabellen angelegt.
+
+### Native DRF-Authentifizierung (inkrementell)
+
+Die geschuetzten DRF-Leseendpunkte nutzen jetzt `LegacyTokenAuthentication`
+(`django_project/authentication.py`). Sie prueft Token und Datenbankbenutzer
+ueber die unveraenderte `require_user`-Logik genau einmal pro Request.
+Der Benutzer steht fuer spaetere DRF-Migrationen als `request.user` zur
+Verfuegung. Die Authentifizierungsbruecke bewahrt bestehende Klartext-401-
+Antworten. Oeffentliche Endpunkte, Login, Rollenpruefungen bei Legacy-Routen,
+Datenbankschema, SMTP und TID-/FID-Regeln bleiben unveraendert.

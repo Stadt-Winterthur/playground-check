@@ -16,7 +16,9 @@ def authenticated_legacy_user(request, require_user):
     Preserve the legacy status, body and content-type exactly, including
     plain-text 401 responses; DRF's default errors differ from that contract.
     """
-    user, error = require_user(LegacyRequest(request._request.META))
+    django_request = getattr(request, "_request", request)
+    cached = getattr(django_request, "_legacy_auth_result", None)
+    user, error = cached if cached is not None else require_user(LegacyRequest(django_request.META))
     if error is not None:
         return user, HttpResponse(
             error.body, status=error.status, content_type=error.content_type

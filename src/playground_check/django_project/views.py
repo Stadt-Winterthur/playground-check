@@ -3,6 +3,7 @@
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from .access import authenticated_legacy_user
+from .authentication import LegacyTokenAuthentication
 
 from playground_check.service import require_user, playground_only_names_data, playground_by_device_data
 
@@ -47,7 +48,7 @@ def _legacy_access_error(request):
 
 
 @api_view(["GET"])
-@authentication_classes([])
+@authentication_classes([LegacyTokenAuthentication])
 @permission_classes([])
 def inspection_types(request):
     error = _legacy_access_error(request)
@@ -59,7 +60,7 @@ def inspection_types(request):
 
 
 @api_view(["GET"])
-@authentication_classes([])
+@authentication_classes([LegacyTokenAuthentication])
 @permission_classes([])
 def renovation_types(request):
     error = _legacy_access_error(request)
@@ -92,7 +93,7 @@ def public_playground_detail(request, uuid):
 
 
 @api_view(["GET"])
-@authentication_classes([])
+@authentication_classes([LegacyTokenAuthentication])
 @permission_classes([])
 def playground_by_name(request):
     """Use shared business/data logic, retaining legacy auth and response keys."""
@@ -104,7 +105,7 @@ def playground_by_name(request):
 
 
 @api_view(["GET"])
-@authentication_classes([])
+@authentication_classes([LegacyTokenAuthentication])
 @permission_classes([])
 def playground_only_names(request):
     # The returned user is needed for the inspector-specific SQL filter.
@@ -116,7 +117,7 @@ def playground_only_names(request):
 
 
 @api_view(["GET"])
-@authentication_classes([])
+@authentication_classes([LegacyTokenAuthentication])
 @permission_classes([])
 def playground_by_device(request, fid: int):
     error = _legacy_access_error(request)
