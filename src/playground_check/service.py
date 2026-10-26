@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import user_repository, user_write_repository
+from . import user_repository, user_write_repository, document_write_repository
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
@@ -1196,12 +1196,8 @@ def post_document(request: Request) -> Response:
     table, column = storage
     try:
         with connect() as db:
-            db.execute(f'LOCK TABLE "{table}" IN EXCLUSIVE MODE')
-            next_row = db.execute(f'SELECT COALESCE(MAX(fid), 0) + 1 AS fid FROM "{table}"').fetchone()
-            fid = int(next_row["fid"])
-            db.execute(
-                f'INSERT INTO "{table}" (fid, fid_spielplatz, {column}) VALUES (%s, %s, %s)',
-                (fid, playground_id, _document_with_name(content, name)),
+            fid = document_write_repository.insert_document(
+                db, table, column, playground_id, _document_with_name(content, name)
             )
         return Response.json({"fid": fid, "name": name})
     except Exception:
@@ -1222,11 +1218,12 @@ def rename_document(request: Request) -> Response:
     try:
         fid = int(request.params["fid"])
         with connect() as db:
-            row = db.execute(f'SELECT {column} AS content FROM "{table}" WHERE fid=%s', (fid,)).fetchone()
+            row = document_write_repository.document_content(db, table, column, fid)
             if not row or not row.get("content"):
                 return Response.json({"errorMessage": "Dokument nicht gefunden."}, 404)
-            db.execute(f'UPDATE "{table}" SET {column}=%s WHERE fid=%s',
-                       (_document_with_name(row["content"], name), fid))
+            document_write_repository.rename_document(
+                db, table, column, fid, _document_with_name(row["content"], name)
+            )
         return Response.json({"fid": fid, "name": name})
     except Exception:
         return Response.json({"errorMessage": "Dokumentname konnte nicht gespeichert werden."}, 400)
@@ -1244,9 +1241,7 @@ def delete_document(request: Request) -> Response:
     try:
         fid = int(request.params["fid"])
         with connect() as db:
-            row = db.execute(
-                f'DELETE FROM "{table}" WHERE fid=%s RETURNING fid', (fid,)
-            ).fetchone()
+            row = document_write_repository.delete_document(db, table, fid)
             if not row:
                 return Response.json({"errorMessage": "Dokument nicht gefunden."}, 404)
         return Response.json({"fid": fid})
