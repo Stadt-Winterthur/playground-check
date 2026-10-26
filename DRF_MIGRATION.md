@@ -111,3 +111,11 @@ weiterhin die fachliche Datenaufbereitung. Die Datenbankverbindung wird vom
 Aufrufer uebergeben; SQL und Parameterbindung bleiben unveraendert. Zugelassene
 View-/Spaltenkombinationen der Pruefkriterien sind explizit festgelegt.
 Schreiboperationen, TID-/FID-Vergabe und SMTP bleiben unveraendert.
+
+## Schritt 11: Detail-Service
+
+Die lesende Zusammenstellung des Spielplatz-Detailpayloads liegt neu in
+`playground_detail_service.build_playground_detail`. Die alte
+`service._playground_result`-Signatur bleibt als kompatibler Delegator erhalten.
+Datenbankverbindung, SQL-Texte, Dokument-Metadaten und bestehende FIDs werden
+unverändert weiterverwendet. Es gibt keine neuen Schreiboperationen.

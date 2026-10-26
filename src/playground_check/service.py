@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository, inspection_defect_repository
+from . import playground_repository, inspection_defect_repository, playground_detail_service
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -638,58 +638,15 @@ def _playdevice(db: Connection, row: Mapping[str, Any], inspection_type: str, wi
 
 
 def _playground_result(db: Connection, row: Mapping[str, Any], inspection_type: str, with_defects: bool, with_inspections: bool) -> dict[str, Any]:
-    devices = [
-        _playdevice(db, item, inspection_type, with_defects, with_inspections)
-        for item in _playdevice_rows(db, row["id"])
-        if not item.get("not_to_be_checked")
-    ]
-    priorities = db.execute('SELECT id, short_value, value FROM "wgr_sp_dringlichkeit_tbd"').fetchall()
-    priority_options = []
-    for item in priorities:
-        short = (item.get("short_value") or "").strip()
-        long = (item.get("value") or "").strip()
-        final = short + (f" ({long})" if short and long else long)
-        if final:
-            priority_options.append(final)
-    type_rows = db.execute('SELECT short_value, value FROM "wgr_sp_inspektionsart_tbd"').fetchall()
-    type_options = [f"{item['value']} ({item['short_value']})" for item in type_rows]
-    renovations = [{"id": item["id"], "value": item["value"]} for item in db.execute(
-        'SELECT id, value FROM "wgr_sp_sanierungsart_tbd"'
-    ).fetchall()]
-    if settings.compatibility_bugs and renovations:
-        renovations = [dict(renovations[-1]) for _ in renovations]
-    bodies = [{"id": item["id"], "value": item["value"]} for item in db.execute(
-        'SELECT id, value FROM "wgr_sp_zust_mangelbeheb_tbd"'
-    ).fetchall()]
-    acceptance_rows = db.execute(
-        'SELECT fid, substring(abnahmedokument from greatest(octet_length(abnahmedokument)-1023,1)) AS meta_tail '
-        'FROM "wgr_sp_abnahmen" WHERE fid_spielplatz=%s AND abnahmedokument IS NOT NULL ORDER BY fid', (row["id"],)
-    ).fetchall()
-    certificate_rows = db.execute(
-        'SELECT fid, substring(zertifikatsdokument from greatest(octet_length(zertifikatsdokument)-1023,1)) AS meta_tail '
-        'FROM "wgr_sp_zertifikat" WHERE fid_spielplatz=%s AND zertifikatsdokument IS NOT NULL ORDER BY fid', (row["id"],)
-    ).fetchall()
-    acceptance = [item["fid"] for item in acceptance_rows]
-    certificates = [item["fid"] for item in certificate_rows]
-    acceptance_documents = [
-        {"fid": item["fid"], "name": _document_name_from_tail(item.get("meta_tail"), str(item["fid"]))}
-        for item in acceptance_rows
-    ]
-    certificate_documents = [
-        {"fid": item["fid"], "name": _document_name_from_tail(item.get("meta_tail"), str(item["fid"]))}
-        for item in certificate_rows
-    ]
-    return {
-        "id": row["id"], "name": row.get("name") or "", "address": row.get("address") or "",
-        "dateOfLastInspection": row.get("date_of_last_inspection") or DOTNET_MIN_DATE,
-        "suspendInspectionFrom": row.get("suspend_from"), "suspendInspectionTo": row.get("suspend_to"),
-        "inspectionSuspended": _suspended(row), "hasOpenDeviceDefects": False,
-        "playdevices": devices, "defectPriorityOptions": priority_options,
-        "inspectionTypeOptions": type_options, "renovationTypeOptions": renovations,
-        "defectsResponsibleBodyOptions": bodies, "chosenTypeOfInspection": "",
-        "documentsOfAcceptanceFids": acceptance, "certificateDocumentsFids": certificates,
-        "documentsOfAcceptance": acceptance_documents, "certificateDocuments": certificate_documents,
-    }
+    """Compatibility entry point shared by the legacy and DRF read paths."""
+    return playground_detail_service.build_playground_detail(
+        db, row, inspection_type, with_defects, with_inspections,
+        load_devices=_playdevice_rows,
+        build_device=_playdevice,
+        document_name=_document_name_from_tail,
+        compatibility_bugs=settings.compatibility_bugs,
+        min_date=DOTNET_MIN_DATE,
+    )
 
 
 def playground_by_name_data(query: Mapping[str, str]) -> dict[str, Any]:
