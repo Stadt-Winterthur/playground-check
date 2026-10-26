@@ -65,7 +65,7 @@ class PlaygroundDetailsDRFTest(unittest.TestCase):
     def test_byname_forwards_query_and_uses_shared_payload(self):
         from playground_check.django_project import views
         expected = {'id': 123, 'name': 'Spielplatz Test', 'playdevices': []}
-        with patch.object(views, '_legacy_access_error', return_value=None), \
+        with patch.object(views, 'require_user', return_value=({'fid': 1}, None)), \
              patch.object(views, 'playground_by_name_data', return_value=expected) as fetch:
             status, payload = self.call('/Playground/byname/', query='name=Spielplatz+Test&withdefects=true')
         self.assertEqual((status, payload), (200, expected))
@@ -73,9 +73,9 @@ class PlaygroundDetailsDRFTest(unittest.TestCase):
         self.assertEqual(fetch.call_args.args[0]['withdefects'], 'true')
 
     def test_byname_unauthorized_never_fetches_data(self):
-        from django.http import HttpResponse
+        from playground_check.http import Response as LegacyResponse
         from playground_check.django_project import views
-        with patch.object(views, '_legacy_access_error', return_value=HttpResponse('unauthorized', status=401)), \
+        with patch.object(views, 'require_user', return_value=(None, LegacyResponse.text('unauthorized', 401))), \
              patch.object(views, 'playground_by_name_data') as fetch:
             from playground_check.django_project import wsgi
             captured = {}

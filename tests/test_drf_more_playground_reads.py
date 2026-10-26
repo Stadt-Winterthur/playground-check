@@ -59,7 +59,7 @@ class MorePlaygroundReadsTest(unittest.TestCase):
     def test_device_lookup_preserves_fid_and_missing_device_payload(self):
         from playground_check.django_project import views
         result = {"id": 0, "name": "", "address": "", "playdevices": []}
-        with patch.object(views, "_legacy_access_error", return_value=None), \
+        with patch.object(views, "require_user", return_value=({"fid": 1}, None)), \
              patch.object(views, "playground_by_device_data", return_value=result) as fetch:
             self.assertEqual(self.call("/Playground/byplaydevice/123/"), (200, result))
         fetch.assert_called_once_with(123)
@@ -67,7 +67,7 @@ class MorePlaygroundReadsTest(unittest.TestCase):
     def test_device_lookup_preserves_path_base(self):
         from playground_check.django_project import views
         base = "/stadtgruen/spielplatzkontrolle"
-        with patch.object(views, "_legacy_access_error", return_value=None), \
+        with patch.object(views, "require_user", return_value=({"fid": 1}, None)), \
              patch.object(views, "playground_by_device_data", return_value={"id": 123}):
             self.assertEqual(self.call(base + "/Playground/byplaydevice/123/", base=base), (200, {"id": 123}))
 

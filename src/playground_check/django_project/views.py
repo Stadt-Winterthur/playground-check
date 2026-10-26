@@ -2,8 +2,8 @@
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from .access import authenticated_legacy_user
 from .authentication import LegacyTokenAuthentication
+from .permissions import IsLegacyAuthenticated
 
 from playground_check.service import require_user, playground_only_names_data, playground_by_device_data
 
@@ -41,19 +41,10 @@ def public_playgrounds(request):
         return Response([_public_feature(error="Unknown critical error.")])
 
 
-def _legacy_access_error(request):
-    """Keep the existing token, dryRun, and database user checks intact."""
-    _, error = authenticated_legacy_user(request, require_user)
-    return error
-
-
 @api_view(["GET"])
 @authentication_classes([LegacyTokenAuthentication])
-@permission_classes([])
+@permission_classes([IsLegacyAuthenticated])
 def inspection_types(request):
-    error = _legacy_access_error(request)
-    if error is not None:
-        return error
     with connect() as db:
         rows = db.execute('SELECT short_value, value FROM "wgr_sp_inspektionsart_tbd"').fetchall()
     return Response([f"{row['value']} ({row['short_value']})" for row in rows])
@@ -61,11 +52,8 @@ def inspection_types(request):
 
 @api_view(["GET"])
 @authentication_classes([LegacyTokenAuthentication])
-@permission_classes([])
+@permission_classes([IsLegacyAuthenticated])
 def renovation_types(request):
-    error = _legacy_access_error(request)
-    if error is not None:
-        return error
     with connect() as db:
         rows = db.execute('SELECT value FROM "wgr_sp_sanierungsart_tbd"').fetchall()
     return Response([row["value"] for row in rows])
@@ -94,33 +82,25 @@ def public_playground_detail(request, uuid):
 
 @api_view(["GET"])
 @authentication_classes([LegacyTokenAuthentication])
-@permission_classes([])
+@permission_classes([IsLegacyAuthenticated])
 def playground_by_name(request):
     """Use shared business/data logic, retaining legacy auth and response keys."""
-    error = _legacy_access_error(request)
-    if error is not None:
-        return error
     query = {key: values[-1] for key, values in request.query_params.lists()}
     return Response(playground_by_name_data(query))
 
 
 @api_view(["GET"])
 @authentication_classes([LegacyTokenAuthentication])
-@permission_classes([])
+@permission_classes([IsLegacyAuthenticated])
 def playground_only_names(request):
     # The returned user is needed for the inspector-specific SQL filter.
-    user, error = authenticated_legacy_user(request, require_user)
-    if error is not None:
-        return error
+    user = dict(request.user)
     query = {key: values[-1] for key, values in request.query_params.lists()}
     return Response(playground_only_names_data(user, query))
 
 
 @api_view(["GET"])
 @authentication_classes([LegacyTokenAuthentication])
-@permission_classes([])
+@permission_classes([IsLegacyAuthenticated])
 def playground_by_device(request, fid: int):
-    error = _legacy_access_error(request)
-    if error is not None:
-        return error
     return Response(playground_by_device_data(fid))

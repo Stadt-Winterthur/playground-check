@@ -58,3 +58,15 @@ Der Benutzer steht fuer spaetere DRF-Migrationen als `request.user` zur
 Verfuegung. Die Authentifizierungsbruecke bewahrt bestehende Klartext-401-
 Antworten. Oeffentliche Endpunkte, Login, Rollenpruefungen bei Legacy-Routen,
 Datenbankschema, SMTP und TID-/FID-Regeln bleiben unveraendert.
+
+### Native Berechtigungsprüfung (nächster Schritt)
+
+Geschützte DRF-GET-Endpunkte verwenden `LegacyTokenAuthentication` zusammen
+mit `IsLegacyAuthenticated`. Die Permission prüft das bereits einmalig
+validierte Token-/Benutzerergebnis, ohne eine weitere Datenbankabfrage
+anzustossen. Die spezifische Exception-Behandlung erhält bei Verweigerung
+die ursprüngliche HTTP-Statuszahl, den Content-Type und den Klartext-Body.
+Öffentliche DRF-Endpunkte bleiben explizit ohne Authentifizierung und Permission.
+Rollenabhängige fachliche Filter bleiben weiterhin in der Fachlogik; native
+rollenbezogene Permissions kommen erst mit entsprechenden geschützten
+Schreib-Endpunkten hinzu. Weder Login noch TID-/FID-Vergabe wurden verändert.
