@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository
+from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -1151,7 +1151,7 @@ def post_inspections(request: Request) -> Response:
                 ).fetchone()
                 if not device_playground or device_playground["fid_spielplatz"] != playground_fid:
                     return Response.json({"errorMessage": "SPK-12"})
-            db.execute('LOCK TABLE "wgr_sp_inspektion", "wgr_sp_insp_bericht" IN EXCLUSIVE MODE')
+            inspection_write_repository.lock_inspection_tables(db)
             duplicate = db.execute(
                 '''SELECT 1 FROM "wgr_sp_inspektion"
                    WHERE fid_spielplatz=%s AND id_inspektionsart=%s AND datum_inspektion::date=%s
@@ -1168,13 +1168,9 @@ def post_inspections(request: Request) -> Response:
                     (playground_fid,),
                 ).fetchone()
                 target = target_row["target"] if target_row else None
-            inserted = db.execute('''INSERT INTO "wgr_sp_inspektion"
-                (tid, id_inspektionsart, fid_spielplatz, datum_inspektion, fid_kontrolleur, datum_soll_inspektion)
-                VALUES ((SELECT CASE WHEN max(tid) IS NULL THEN 1 ELSE max(tid)+1 END FROM "wgr_sp_inspektion"),
-                        %s, %s, %s, %s, %s) RETURNING tid''',
-                (type_id, playground_fid, service_date, inspector_fid, target),
-            ).fetchone()
-            inspection_tid = inserted["tid"]
+            inspection_tid = inspection_write_repository.insert_inspection(
+                db, type_id, playground_fid, service_date, inspector_fid, target,
+            )
             for report in reports:
                 fid = int(report.get("playdeviceFid") or 0)
                 if not fid:
@@ -1184,17 +1180,9 @@ def post_inspections(request: Request) -> Response:
                 ).fetchone()
                 if not device or device.get("nicht_zu_pruefen") or device.get("nicht_pruefbar"):
                     continue
-                db.execute('''INSERT INTO "wgr_sp_insp_bericht"
-                    (tid, tid_inspektion, fid_spielgeraet, fid_geraet_detail, inspektionsart,
-                     datum_inspektion, kontrolleur, pruefung_text, pruefung_erledigt,
-                     pruefung_kommentar, wartung_text, wartung_erledigung, wartung_kommentar, fallschutz)
-                    VALUES ((SELECT CASE WHEN max(tid) IS NULL THEN 1 ELSE max(tid)+1 END FROM "wgr_sp_insp_bericht"),
-                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                    (inspection_tid, fid, report.get("playdeviceDetailFid") or None, inspection_type, service_date,
-                     f"{user['firstName']} {user['lastName']}", report.get("inspectionText") or "",
-                     1 if _bool(report.get("inspectionDone")) else 0, report.get("inspectionComment") or "",
-                     report.get("maintenanceText") or "", 1 if _bool(report.get("maintenanceDone")) else 0,
-                     report.get("maintenanceComment") or "", report.get("fallProtectionType") or ""),
+                inspection_write_repository.insert_report(
+                    db, inspection_tid, fid, report, inspection_type, service_date,
+                    f"{user['firstName']} {user['lastName']}", _bool,
                 )
         return Response.json({"errorMessage": ""})
     except Exception:

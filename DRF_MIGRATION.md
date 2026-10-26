@@ -140,3 +140,17 @@ Datenbankverbindung und Transaktion und führt die Zuweisungshistorie weiterhin
 innerhalb derselben Transaktion aus. Die TID-Vergabe nutzt unverändert `LOCK TABLE`
 und `MAX(tid)+1`; neue FIDs werden nicht erzeugt. API-Fehlercodes und
 Validierungsregeln bleiben unverändert.
+
+### Schritt 15 – Inspektions-Schreibzugriffe
+
+`inspection_write_repository.py` kapselt die unveränderten SQL-Schreibzugriffe
+für Inspektionen und Berichte. Die bestehende `post_inspections`-Funktion prüft
+weiterhin Rollen, Eingaben, Spielplatzzuordnung und Duplikate; sie hält
+innerhalb von `with connect()` eine einzige Transaktion offen. Die exklusive
+Sperre wird weiterhin **vor** der Duplikatsprüfung gesetzt und erst mit Ende
+der Transaktion gelöst. Parent- und Child-Zeilen erhalten nur TIDs, die
+Spielplatz-/Spielgeräte-FIDs stammen aus bestehenden Datensätzen. Bei Fehlern
+bleibt der Antwortvertrag `SPK-3` erhalten.
+
+Die Tests in `test_inspection_write_repository.py` simulieren die Datenbank;
+sie prüfen nicht das tatsächliche PostgreSQL-Sperr- oder Rollback-Verhalten.

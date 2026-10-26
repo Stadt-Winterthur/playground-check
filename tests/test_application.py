@@ -560,7 +560,21 @@ class ApplicationTest(unittest.TestCase):
         self.assertEqual(service._decode_image(encoded), (png, "image/png"))
 
     def test_original_postgresql_contract_is_present(self):
-        source = Path(service.__file__).read_text(encoding="utf-8")
+        # SQL wurde schrittweise aus service.py in Repositories ausgelagert.
+        # Der Vertrag gilt fuer die Gesamtheit der Datenzugriffsmodule.
+        package_dir = Path(service.__file__).parent
+        module_names = (
+            "service.py",
+            "playground_repository.py",
+            "inspection_defect_repository.py",
+            "defect_write_repository.py",
+            "inspection_write_repository.py",
+        )
+        sources = {
+            name: (package_dir / name).read_text(encoding="utf-8")
+            for name in module_names
+        }
+        combined_source = "\n".join(sources.values())
         required = {
             "wgr_sp_kontrolleur", "wgr_sp_spielplatz", "gr_v_spielgeraete",
             "wgr_sp_inspektion", "wgr_sp_insp_bericht", "wgr_sp_insp_mangel",
@@ -568,9 +582,12 @@ class ApplicationTest(unittest.TestCase):
             "wgr_v_sp_hfall_insp_krit", "wgr_v_sp_nfall_insp_krit",
             "wgr_sp_push_subscription", "ST_X", "ST_Y",
         }
-        self.assertTrue(all(name in source for name in required))
-        self.assertNotIn("sqlite3", source)
-        self.assertNotIn("CREATE TABLE", source.upper())
+        missing = required - {name for name in required if name in combined_source}
+        self.assertFalse(missing, f"Fehlende PostgreSQL-Objekte: {sorted(missing)}")
+        for name, source in sources.items():
+            with self.subTest(module=name):
+                self.assertNotIn("sqlite3", source)
+                self.assertNotIn("CREATE TABLE", source.upper())
 
     def test_original_npgsql_connection_string_can_be_reused(self):
         converted = _npgsql_to_libpq(
