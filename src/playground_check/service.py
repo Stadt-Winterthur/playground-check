@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository
+from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -707,14 +707,14 @@ def save_playdevice(request: Request) -> Response:
         return Response.json({"errorMessage": "SPK-5"})
     try:
         with connect() as db:
-            db.execute('''UPDATE "gr_v_spielgeraete" SET
-                empfohlenes_sanierungsjahr=%s, id_sanierungsart=%s,
-                bemerkung_empf_sanierung=%s, nicht_pruefbar=%s,
-                grund_nicht_pruefbar=%s WHERE fid=%s''',
-                (props.get("recommendedYearOfRenovation") if int(props.get("recommendedYearOfRenovation") or 0) > 0 else None,
-                 props.get("renovationType") if int(props.get("renovationType") or 0) != 0 else None,
-                 props.get("commentRecommendedYearOfRenovation") or None, _bool(props.get("cannotBeChecked")),
-                 props.get("cannotBeCheckedReason") or "", int(props.get("fid") or 0)),
+            playdevice_write_repository.update_playdevice(
+                db,
+                props.get("recommendedYearOfRenovation") if int(props.get("recommendedYearOfRenovation") or 0) > 0 else None,
+                props.get("renovationType") if int(props.get("renovationType") or 0) != 0 else None,
+                props.get("commentRecommendedYearOfRenovation") or None,
+                _bool(props.get("cannotBeChecked")),
+                props.get("cannotBeCheckedReason") or "",
+                int(props.get("fid") or 0),
             )
         return Response.json({"errorMessage": ""})
     except Exception:
