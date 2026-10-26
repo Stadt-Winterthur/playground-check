@@ -15,6 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
+from . import remaining_reads_repository
 from . import user_repository, user_write_repository, document_write_repository, push_repository, assignment_repository, mail_repository, inspection_validation_repository
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
@@ -347,7 +348,7 @@ def inspection_types(request: Request) -> Response:
     if error:
         return error
     with connect() as db:
-        rows = db.execute('SELECT short_value, value FROM "wgr_sp_inspektionsart_tbd"').fetchall()
+        rows = remaining_reads_repository.inspection_type_rows(db)
     return Response.json([f"{row['value']} ({row['short_value']})" for row in rows])
 
 
@@ -356,7 +357,7 @@ def renovation_types(request: Request) -> Response:
     if error:
         return error
     with connect() as db:
-        rows = db.execute('SELECT value FROM "wgr_sp_sanierungsart_tbd"').fetchall()
+        rows = remaining_reads_repository.renovation_type_rows(db)
     return Response.json([row["value"] for row in rows])
 
 
@@ -371,33 +372,8 @@ def only_names(request: Request) -> Response:
 def playground_only_names_data(user: Mapping[str, Any] | None, query: Mapping[str, str]) -> list[dict[str, Any]]:
     """Existing filtered playground list without any HTTP framework dependencies."""
     inspection_type = query.get("inspectiontype", query.get("inspectionType", ""))
-    params: tuple[Any, ...] = ()
-    sql = '''SELECT DISTINCT ON (sp.name)
-        sp.name, insp.datum_inspektion AS date_of_last_inspection,
-        sp.inspektion_aussetzen_von AS suspend_from,
-        sp.inspektion_aussetzen_bis AS suspend_to,
-        (SELECT count(*) > 0 FROM "wgr_sp_insp_mangel" mangel
-         JOIN "gr_v_spielgeraete" geraete ON mangel.fid_spielgeraet=geraete.fid
-         WHERE geraete.fid_spielplatz=sp.fid AND mangel.fid_erledigung IS NULL) AS has_open
-        FROM "wgr_sp_spielplatz" sp
-        LEFT JOIN "wgr_sp_inspektion" insp ON insp.fid_spielplatz=sp.fid
-        ORDER BY sp.name, insp.datum_inspektion DESC'''
-    if user and inspection_type and inspection_type != "Keine Inspektion":
-        base_type = inspection_type[:-5]
-        sql = '''SELECT DISTINCT ON (sp.name)
-            sp.name, insp.datum_inspektion AS date_of_last_inspection,
-            sp.inspektion_aussetzen_von AS suspend_from,
-            sp.inspektion_aussetzen_bis AS suspend_to, false AS has_open
-            FROM "wgr_sp_spielplatz" sp
-            JOIN "wgr_sp_inspart_kontr" ikt ON sp.fid=ikt.fid_spielplatz
-            JOIN "wgr_sp_kontrolleur" kt ON kt.fid=ikt.fid_kontrolleur
-            JOIN "wgr_sp_inspektionsart_tbd" ina ON ina.id=ikt.id_inspektionsart
-            LEFT JOIN "wgr_sp_inspektion" insp ON insp.fid_spielplatz=sp.fid
-            WHERE trim(lower(kt.e_mail))=%s AND ina.value=%s
-            ORDER BY sp.name, insp.datum_inspektion DESC'''
-        params = (user["mailAddress"], base_type)
     with connect() as db:
-        rows = db.execute(sql, params).fetchall()
+        rows = remaining_reads_repository.playground_name_rows(db, user, inspection_type)
     result = []
     for row in rows:
         suspended = _suspended(row)
@@ -419,10 +395,7 @@ def playground_only_names_data(user: Mapping[str, Any] | None, query: Mapping[st
 def public_playgrounds(request: Request) -> Response:
     try:
         with connect() as db:
-            rows = db.execute('''SELECT uuid::text AS uuid, nummer AS number, name,
-                strassenname AS street_name, hausnummer AS house_no,
-                ST_X(geom) AS x, ST_Y(geom) AS y FROM "wgr_sp_spielplatz"'''
-            ).fetchall()
+            rows = remaining_reads_repository.public_playground_rows(db)
         return Response.json([_public_feature(row) for row in rows])
     except Exception:
         return Response.json([_public_feature(error="Unknown critical error.")])
@@ -434,10 +407,7 @@ def public_playground(request: Request) -> Response:
         return Response.json(_public_feature(error="No valid UUID provided."))
     try:
         with connect() as db:
-            row = db.execute('''SELECT uuid::text AS uuid, nummer AS number, name,
-                strassenname AS street_name, hausnummer AS house_no,
-                ST_X(geom) AS x, ST_Y(geom) AS y
-                FROM "wgr_sp_spielplatz" WHERE uuid::text=%s''', (uuid,)).fetchone()
+            row = remaining_reads_repository.public_playground_by_uuid(db, uuid)
         if not row:
             return Response.json(_public_feature({"uuid": uuid}, "No playground found for given UUID."))
         return Response.json(_public_feature(row))
@@ -506,10 +476,7 @@ def _assignment_history(db: Connection, defect_tid: int) -> list[dict[str, Any]]
 def _defect_creator_name(db: Connection, fid: Any) -> str:
     if not fid:
         return ""
-    row = db.execute(
-        'SELECT vorname AS first_name, nachname AS last_name FROM "wgr_sp_kontrolleur" WHERE fid=%s',
-        (fid,),
-    ).fetchone()
+    row = remaining_reads_repository.defect_creator_row(db, fid)
     if not row:
         return ""
     return f"{row.get('first_name') or ''} {row.get('last_name') or ''}".strip()
@@ -517,10 +484,7 @@ def _defect_creator_name(db: Connection, fid: Any) -> str:
 
 def _defect_dict(db: Connection, row: Mapping[str, Any], pictures: bool = True) -> dict[str, Any]:
     picture_rows = (
-        db.execute(
-            'SELECT tid, zeitpunkt AS after_fixing FROM "wgr_sp_insp_mangel_foto" WHERE tid_maengel=%s',
-            (row["tid"],),
-        ).fetchall()
+        remaining_reads_repository.defect_picture_rows(db, row["tid"])
         if pictures else []
     )
     return inspection_defect_service.defect_payload(
@@ -559,7 +523,7 @@ def _playdevice(db: Connection, row: Mapping[str, Any], inspection_type: str, wi
         general = _criteria(db, "wgr_v_sp_ger_insp_krit", "inspektionsart", row["fid"], base_type)
         main = _criteria(db, "wgr_v_sp_hfall_insp_krit", "insektionsart", row["fid"], base_type)
         secondary = _criteria(db, "wgr_v_sp_nfall_insp_krit", "insektionsart", row["fid"], base_type)
-        types = db.execute('SELECT short_value, value FROM "wgr_sp_inspektionsart_tbd"').fetchall()
+        types = remaining_reads_repository.inspection_type_rows(db)
         last, previous = _inspection_history(db, row["fid"], [f"{x['value']} ({x['short_value']})" for x in types])
     defects = None
     if with_defects:
@@ -619,10 +583,7 @@ def get_playground_by_id(request: Request) -> Response:
     if settings.compatibility_bugs:
         return Response.text("Index was outside the bounds of the array.", 500)
     with connect() as db:
-        row = db.execute('''SELECT fid AS id, name,
-            inspektion_aussetzen_von AS suspend_from, inspektion_aussetzen_bis AS suspend_to,
-            NULL::date AS date_of_last_inspection, '' AS address
-            FROM "wgr_sp_spielplatz" WHERE fid=%s''', (int(request.params["id"]),)).fetchone()
+        row = remaining_reads_repository.playground_by_fid(db, int(request.params["id"]))
         result = _playground_result(db, row, request.query.get("inspectiontype", ""),
             _bool(request.query.get("withdefects")), _bool(request.query.get("withinspections"))) if row else None
     return Response.json(result)
@@ -683,36 +644,7 @@ def get_defect_overview(request: Request) -> Response:
     if error:
         return error
     with connect() as db:
-        rows = db.execute('''SELECT
-            mangel.tid, mangel.fid_spielgeraet AS playdevice_fid,
-            spielplatz.name AS playground_name,
-            COALESCE(geraeteart.value, geraeteart.short_value, '') AS playdevice_type,
-            geraet.norm AS standard,
-            mangel.id_dringlichkeit AS priority,
-            mangel.beschrieb AS description,
-            mangel.bemerkunng AS comment,
-            mangel.datum AS date_creation,
-            mangel.datum_erledigung AS date_done,
-            mangel.fid_erledigung AS done_by,
-            mangel.id_zustaendig_behebung AS responsible_body_id,
-            mangel.fid_zustaendig_kontrolleur AS responsible_user_fid,
-            TRIM(CONCAT(COALESCE(kontrolleur.vorname, ''), ' ', COALESCE(kontrolleur.nachname, ''))) AS responsible_user_name,
-            (
-                mangel.fid_erledigung IS NULL
-                AND mangel.id_dringlichkeit = 1
-                AND mangel.auftrag_status = 'zugewiesen'
-                AND mangel.datum_auftrag_zugewiesen IS NOT NULL
-                AND mangel.datum_auftrag_angenommen IS NULL
-                AND mangel.datum_auftrag_abgelehnt IS NULL
-                AND mangel.datum_auftrag_zugewiesen <= CURRENT_TIMESTAMP - INTERVAL '24 hours'
-            ) AS assignment_overdue
-            FROM "wgr_sp_insp_mangel" mangel
-            LEFT JOIN "gr_v_spielgeraete" geraet ON geraet.fid=mangel.fid_spielgeraet
-            LEFT JOIN "wgr_sp_spielplatz" spielplatz ON spielplatz.fid=geraet.fid_spielplatz
-            LEFT JOIN "wgr_sp_spielgeraeteart_tbd" geraeteart ON geraeteart.id=geraet.id_geraeteart
-            LEFT JOIN "wgr_sp_kontrolleur" kontrolleur ON kontrolleur.fid=mangel.fid_zustaendig_kontrolleur
-            ORDER BY (mangel.fid_erledigung IS NOT NULL), mangel.datum, spielplatz.name, geraeteart.value
-        ''').fetchall()
+        rows = remaining_reads_repository.defect_overview_rows(db)
     result = []
     for row in rows:
         result.append({
@@ -945,8 +877,7 @@ def get_playdevice_picture(request: Request) -> Response:
     if error:
         return error
     with connect() as db:
-        row = db.execute('SELECT picture_base64 AS picture FROM "gr_v_spielgeraete" WHERE fid=%s',
-                         (int(request.params["fid"]),)).fetchone()
+        row = remaining_reads_repository.playdevice_picture(db, int(request.params["fid"]))
     if not row or row["picture"] is None:
         return Response.text("Kein Bild vorhanden.", 404)
     data, mime = _decode_image(row["picture"])
@@ -1000,10 +931,8 @@ def get_defect_picture(request: Request) -> Response:
     _, error = require_user(request)
     if error:
         return error
-    column = "picture_base64_thumb" if _bool(request.query.get("thumb")) else "picture_base64"
     with connect() as db:
-        row = db.execute(f'SELECT {column} AS value FROM "wgr_sp_insp_mangel_foto" WHERE tid=%s',
-                         (int(request.params["tid"]),)).fetchone()
+        row = remaining_reads_repository.defect_picture(db, int(request.params["tid"]), _bool(request.query.get("thumb")))
     if not row or row["value"] is None:
         return Response.text("Kein Bild vorhanden.", 404)
     data, mime = _decode_image(row["value"])
@@ -1105,8 +1034,7 @@ def get_document(request: Request) -> Response:
     table, column = storage
     try:
         with connect() as db:
-            row = db.execute(f'SELECT {column} AS content FROM "{table}" WHERE fid=%s',
-                             (int(request.params["fid"]),)).fetchone()
+            row = remaining_reads_repository.document_blob(db, table, column, int(request.params["fid"]))
         if not row:
             return Response(b"", 400)
         content, _ = _document_parts(row["content"])
