@@ -127,3 +127,7 @@ liegen neu in `inspection_defect_service.py`. `service.py` übernimmt weiterhin
 Authentifizierung, Verbindung, Abfragen und die Anreicherung von Benutzernamen
 und Zuweisungsverlauf. Die neuen Funktionen führen weder SQL noch Schreibvorgänge
 aus; TIDs/FIDs und API-Antworten bleiben unverändert.
+
+### Schritt 13: Mängel-Schreibregeln
+
+`defect_write_rules.py` kapselt reine Validierungs- und Zuweisungsregeln. Die bestehenden `INSERT`-/`UPDATE`-SQL-Anweisungen, Transaktionen und TID-Erzeugung bleiben in `service.py`; FIDs werden nicht erzeugt.

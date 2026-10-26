@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service
+from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -788,15 +788,8 @@ def get_defect(request: Request) -> Response:
     return Response.json(result)
 
 
-def _priority_two_fields_complete(body: Mapping[str, Any]) -> bool:
-    try:
-        priority = int(body.get("priority") or 0)
-        responsible_body = int(body.get("defectsResponsibleBodyId") or -1)
-        responsible_user = int(body.get("responsibleUserFid") or -1)
-    except (TypeError, ValueError):
-        return False
-    return priority != 2 or (responsible_body > 0 and responsible_user > 0)
-
+# Backward-compatible alias used by existing write endpoints.
+_priority_two_fields_complete = defect_write_rules.priority_two_fields_complete
 
 def create_defect(request: Request) -> Response:
     user, error = require_user(request)
@@ -810,7 +803,7 @@ def create_defect(request: Request) -> Response:
         body["errorMessage"] = "SPK-10"
         return Response.json(body)
     try:
-        responsible = int(body.get("responsibleUserFid") or -1)
+        responsible = defect_write_rules.responsible_user_fid(body)
         date_done = date.today() if body.get("dateDone") is not None else None
         with connect() as db:
             db.execute('LOCK TABLE "wgr_sp_insp_mangel" IN EXCLUSIVE MODE')
@@ -824,7 +817,7 @@ def create_defect(request: Request) -> Response:
                 RETURNING tid''',
                 (body.get("playdeviceFid"), body.get("priority"), body.get("defectDescription") or "",
                  body.get("defectComment") or "", date_done, user["fid"] if date_done else None,
-                 body.get("defectsResponsibleBodyId") if int(body.get("defectsResponsibleBodyId") or -1) > 0 else None,
+                 defect_write_rules.responsible_body_id(body),
                  responsible if responsible > 0 else None, "zugewiesen" if responsible > 0 else None,
                  datetime.now() if responsible > 0 else None, (body.get("assignmentComment") or "").strip() or None,
                  user["fid"]),
@@ -849,7 +842,7 @@ def update_defect(request: Request) -> Response:
     if not _priority_two_fields_complete(body):
         return Response.json({"errorMessage": "SPK-10"})
     try:
-        responsible = int(body.get("responsibleUserFid") or -1)
+        responsible = defect_write_rules.responsible_user_fid(body)
         date_done = _date_value(body.get("dateDone"))
         with connect() as db:
             current = db.execute(
@@ -858,18 +851,9 @@ def update_defect(request: Request) -> Response:
             ).fetchone()
             if not current:
                 return Response.json({"errorMessage": "SPK-3"})
-            new_responsible = responsible if responsible > 0 else None
-            assignment_changed = current.get("responsible_user_fid") != new_responsible
-            assignment_status_value = (
-                "zugewiesen" if new_responsible and assignment_changed
-                else (body.get("assignmentStatus") or "zugewiesen") if new_responsible else None
-            )
-            assignment_created_value = (
-                datetime.now() if new_responsible and assignment_changed
-                else (_date_value(body.get("dateAssignmentCreated")) or datetime.now()) if new_responsible else None
-            )
-            assignment_comment_value = (
-                None if assignment_changed else (body.get("assignmentComment") or "").strip() or None
+            (new_responsible, assignment_changed, assignment_status_value,
+             assignment_created_value, assignment_comment_value) = defect_write_rules.update_assignment_fields(
+                body, current.get("responsible_user_fid"), parse_date=_date_value,
             )
             db.execute('''UPDATE "wgr_sp_insp_mangel" SET
                 id_dringlichkeit=%s, beschrieb=%s, bemerkunng=%s, datum_erledigung=%s,
@@ -881,7 +865,7 @@ def update_defect(request: Request) -> Response:
                 infomail_empfaenger=CASE WHEN fid_zustaendig_kontrolleur IS DISTINCT FROM %s THEN NULL ELSE infomail_empfaenger END,
                 fid_erledigung=%s WHERE tid=%s''',
                 (body.get("priority"), body.get("defectDescription") or "", body.get("defectComment") or "", date_done,
-                 body.get("defectsResponsibleBodyId") if int(body.get("defectsResponsibleBodyId") or -1) > 0 else None,
+                 defect_write_rules.responsible_body_id(body),
                  new_responsible, assignment_status_value, assignment_created_value, assignment_comment_value,
                  new_responsible, new_responsible, new_responsible, new_responsible,
                  user["fid"] if date_done else None, body.get("tid")),
