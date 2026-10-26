@@ -563,18 +563,10 @@ class ApplicationTest(unittest.TestCase):
         # SQL wurde schrittweise aus service.py in Repositories ausgelagert.
         # Der Vertrag gilt fuer die Gesamtheit der Datenzugriffsmodule.
         package_dir = Path(service.__file__).parent
-        module_names = (
-            "service.py",
-            "playground_repository.py",
-            "inspection_defect_repository.py",
-            "defect_write_repository.py",
-            "inspection_write_repository.py",
-            "push_repository.py",
-        )
-        sources = {
-            name: (package_dir / name).read_text(encoding="utf-8")
-            for name in module_names
-        }
+        # Discover all repository modules automatically so a new extraction
+        # cannot silently make this contract test stale again.
+        modules = [package_dir / "service.py", *sorted(package_dir.glob("*repository.py"))]
+        sources = {path.name: path.read_text(encoding="utf-8") for path in modules}
         combined_source = "\n".join(sources.values())
         required = {
             "wgr_sp_kontrolleur", "wgr_sp_spielplatz", "gr_v_spielgeraete",
