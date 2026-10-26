@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import user_repository, user_write_repository, document_write_repository
+from . import user_repository, user_write_repository, document_write_repository, push_repository
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
@@ -1261,15 +1261,9 @@ def push_register(request: Request) -> Response:
         if not endpoint or not p256dh or not auth:
             raise ValueError("Incomplete subscription")
         with connect() as db:
-            db.execute('''INSERT INTO "wgr_sp_push_subscription"
-                (fid_kontrolleur, endpoint, p256dh, auth, user_agent, aktiv,
-                 datum_registrierung, datum_letzte_verwendung, datum_deaktivierung)
-                VALUES (%s, %s, %s, %s, %s, true, CURRENT_TIMESTAMP, NULL, NULL)
-                ON CONFLICT (endpoint) DO UPDATE SET
-                 fid_kontrolleur=EXCLUDED.fid_kontrolleur, p256dh=EXCLUDED.p256dh,
-                 auth=EXCLUDED.auth, user_agent=EXCLUDED.user_agent, aktiv=true,
-                 datum_letzte_verwendung=CURRENT_TIMESTAMP, datum_deaktivierung=NULL''',
-                (user["fid"], endpoint, p256dh, auth, (body.get("userAgent") or request.headers.get("User-Agent", "")).strip() or None),
+            push_repository.register_subscription(
+                db, user["fid"], endpoint, p256dh, auth,
+                (body.get("userAgent") or request.headers.get("User-Agent", "")).strip() or None,
             )
         return Response.json({"errorMessage": ""})
     except Exception:
@@ -1286,9 +1280,7 @@ def push_unregister(request: Request) -> Response:
         if not endpoint:
             raise ValueError("Missing endpoint")
         with connect() as db:
-            db.execute('''UPDATE "wgr_sp_push_subscription"
-                SET aktiv=false, datum_deaktivierung=CURRENT_TIMESTAMP
-                WHERE fid_kontrolleur=%s AND endpoint=%s''', (user["fid"], endpoint))
+            push_repository.unregister_subscription(db, user["fid"], endpoint)
         return Response.json({"errorMessage": ""})
     except Exception:
         return Response.json({"errorMessage": "SPK-3"})
@@ -1299,8 +1291,7 @@ def push_me(request: Request) -> Response:
     if error:
         return error
     with connect() as db:
-        rows = db.execute('''SELECT endpoint, p256dh, auth, COALESCE(user_agent,'') AS user_agent
-            FROM "wgr_sp_push_subscription" WHERE fid_kontrolleur=%s AND aktiv=true''', (user["fid"],)).fetchall()
+        rows = push_repository.active_subscriptions(db, user["fid"])
     return Response.json([{
         "endpoint": row["endpoint"], "p256dh": row["p256dh"], "auth": row["auth"], "userAgent": row["user_agent"]
     } for row in rows])

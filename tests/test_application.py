@@ -569,6 +569,7 @@ class ApplicationTest(unittest.TestCase):
             "inspection_defect_repository.py",
             "defect_write_repository.py",
             "inspection_write_repository.py",
+            "push_repository.py",
         )
         sources = {
             name: (package_dir / name).read_text(encoding="utf-8")
