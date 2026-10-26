@@ -441,7 +441,7 @@ def playground_only_names_data(user: Mapping[str, Any] | None, query: Mapping[st
             "renovationTypeOptions": [], "defectsResponsibleBodyOptions": [],
             "documentsOfAcceptanceFids": [], "certificateDocumentsFids": [],
         })
-    return Response.json(result)
+    return result
 
 
 
