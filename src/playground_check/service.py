@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository
+from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -1042,8 +1042,7 @@ def exchange_playdevice_picture(request: Request) -> Response:
         return Response.text(image_error, 400)
     if not _bool(request.query.get("dryRun")):
         with connect() as db:
-            db.execute('UPDATE "gr_v_spielgeraete" SET picture_base64=%s WHERE fid=%s',
-                       (str(data).encode("ascii", "replace"), fid))
+            picture_write_repository.update_playdevice_picture(db, fid, str(data).encode("ascii", "replace"))
     return Response.json({"errorMessage": ""})
 
 
@@ -1061,8 +1060,7 @@ def put_playdevice_picture(request: Request) -> Response:
     if image_error:
         return Response.text(image_error, 400)
     with connect() as db:
-        db.execute('UPDATE "gr_v_spielgeraete" SET picture_base64=%s WHERE fid=%s',
-                   (data, int(request.params["fid"])))
+        picture_write_repository.update_playdevice_picture(db, int(request.params["fid"]), data)
     return Response(b"", 200, "application/json; charset=utf-8")
 
 
@@ -1096,13 +1094,10 @@ def put_defect_picture(request: Request) -> Response:
         if image_error:
             return Response.text(image_error, 400)
     with connect() as db:
-        db.execute('LOCK TABLE "wgr_sp_insp_mangel_foto" IN EXCLUSIVE MODE')
-        row = db.execute('''INSERT INTO "wgr_sp_insp_mangel_foto"
-            (tid, tid_maengel, picture_base64, picture_base64_thumb, zeitpunkt)
-            VALUES ((SELECT COALESCE(MAX(tid),0)+1 FROM "wgr_sp_insp_mangel_foto"), %s, %s, %s, %s)
-            RETURNING tid''',
-            (int(request.params["tid"]), picture, thumbnail, _bool(body.get("afterFixing"))),
-        ).fetchone()
+        row = picture_write_repository.insert_defect_picture(
+            db, int(request.params["tid"]), picture, thumbnail,
+            _bool(body.get("afterFixing")),
+        )
     return Response.json({"tid": row["tid"]}) if row else Response(b"", 400)
 
 

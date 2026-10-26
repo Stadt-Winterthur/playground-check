@@ -154,3 +154,11 @@ bleibt der Antwortvertrag `SPK-3` erhalten.
 
 Die Tests in `test_inspection_write_repository.py` simulieren die Datenbank;
 sie prüfen nicht das tatsächliche PostgreSQL-Sperr- oder Rollback-Verhalten.
+
+### Schritt 16: Foto-Schreibrepository
+
+`picture_write_repository.py` kapselt die bestehenden SQL-Anweisungen für
+Spielgerätebilder (UPDATE über vorhandene FID) und Mängelfotos (INSERT mit TID).
+Validierung, Dry-Run, Autorisierung, HTTP-Antworten und Transaktionskontext
+verbleiben unverändert in `service.py`. Die Mängelfoto-TID wird weiterhin unter
+exklusiver Tabellensperre durch `MAX(tid)+1` ermittelt.
