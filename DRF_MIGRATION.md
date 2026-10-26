@@ -131,3 +131,12 @@ aus; TIDs/FIDs und API-Antworten bleiben unverändert.
 ### Schritt 13: Mängel-Schreibregeln
 
 `defect_write_rules.py` kapselt reine Validierungs- und Zuweisungsregeln. Die bestehenden `INSERT`-/`UPDATE`-SQL-Anweisungen, Transaktionen und TID-Erzeugung bleiben in `service.py`; FIDs werden nicht erzeugt.
+
+### Schritt 14: Mängel-Schreibrepository
+
+`defect_write_repository.py` führt die bestehenden SQL-Operationen für Erstellung
+und Aktualisierung von Mängeln aus. Der aufrufende Service bleibt Eigentümer der
+Datenbankverbindung und Transaktion und führt die Zuweisungshistorie weiterhin
+innerhalb derselben Transaktion aus. Die TID-Vergabe nutzt unverändert `LOCK TABLE`
+und `MAX(tid)+1`; neue FIDs werden nicht erzeugt. API-Fehlercodes und
+Validierungsregeln bleiben unverändert.

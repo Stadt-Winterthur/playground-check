@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules
+from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -806,22 +806,11 @@ def create_defect(request: Request) -> Response:
         responsible = defect_write_rules.responsible_user_fid(body)
         date_done = date.today() if body.get("dateDone") is not None else None
         with connect() as db:
-            db.execute('LOCK TABLE "wgr_sp_insp_mangel" IN EXCLUSIVE MODE')
-            row = db.execute('''INSERT INTO "wgr_sp_insp_mangel"
-                (tid, fid_spielgeraet, datum, id_dringlichkeit, beschrieb, bemerkunng,
-                 datum_erledigung, fid_erledigung, id_zustaendig_behebung,
-                 fid_zustaendig_kontrolleur, auftrag_status, datum_auftrag_zugewiesen, bemerkung_auftrag,
-                 fid_erfassung)
-                VALUES ((SELECT CASE WHEN max(tid) IS NULL THEN 1 ELSE max(tid)+1 END FROM "wgr_sp_insp_mangel"),
-                 %s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING tid''',
-                (body.get("playdeviceFid"), body.get("priority"), body.get("defectDescription") or "",
-                 body.get("defectComment") or "", date_done, user["fid"] if date_done else None,
-                 defect_write_rules.responsible_body_id(body),
-                 responsible if responsible > 0 else None, "zugewiesen" if responsible > 0 else None,
-                 datetime.now() if responsible > 0 else None, (body.get("assignmentComment") or "").strip() or None,
-                 user["fid"]),
-            ).fetchone()
+            row = defect_write_repository.insert_defect(
+                db, body, user, date_done, responsible,
+                defect_write_rules.responsible_body_id(body),
+                datetime.now() if responsible > 0 else None,
+            )
             if responsible > 0:
                 _record_assignment_change(db, int(row["tid"]), user, None, responsible)
             body["assignmentHistory"] = _assignment_history(db, int(row["tid"]))
@@ -845,30 +834,17 @@ def update_defect(request: Request) -> Response:
         responsible = defect_write_rules.responsible_user_fid(body)
         date_done = _date_value(body.get("dateDone"))
         with connect() as db:
-            current = db.execute(
-                'SELECT fid_zustaendig_kontrolleur AS responsible_user_fid FROM "wgr_sp_insp_mangel" WHERE tid=%s',
-                (body.get("tid"),),
-            ).fetchone()
+            current = defect_write_repository.current_responsible(db, body.get("tid"))
             if not current:
                 return Response.json({"errorMessage": "SPK-3"})
             (new_responsible, assignment_changed, assignment_status_value,
              assignment_created_value, assignment_comment_value) = defect_write_rules.update_assignment_fields(
                 body, current.get("responsible_user_fid"), parse_date=_date_value,
             )
-            db.execute('''UPDATE "wgr_sp_insp_mangel" SET
-                id_dringlichkeit=%s, beschrieb=%s, bemerkunng=%s, datum_erledigung=%s,
-                id_zustaendig_behebung=%s, fid_zustaendig_kontrolleur=%s,
-                auftrag_status=%s, datum_auftrag_zugewiesen=%s, bemerkung_auftrag=%s,
-                datum_auftrag_angenommen=CASE WHEN fid_zustaendig_kontrolleur IS DISTINCT FROM %s THEN NULL ELSE datum_auftrag_angenommen END,
-                datum_auftrag_abgelehnt=CASE WHEN fid_zustaendig_kontrolleur IS DISTINCT FROM %s THEN NULL ELSE datum_auftrag_abgelehnt END,
-                infomail_gesendet_am=CASE WHEN fid_zustaendig_kontrolleur IS DISTINCT FROM %s THEN NULL ELSE infomail_gesendet_am END,
-                infomail_empfaenger=CASE WHEN fid_zustaendig_kontrolleur IS DISTINCT FROM %s THEN NULL ELSE infomail_empfaenger END,
-                fid_erledigung=%s WHERE tid=%s''',
-                (body.get("priority"), body.get("defectDescription") or "", body.get("defectComment") or "", date_done,
-                 defect_write_rules.responsible_body_id(body),
-                 new_responsible, assignment_status_value, assignment_created_value, assignment_comment_value,
-                 new_responsible, new_responsible, new_responsible, new_responsible,
-                 user["fid"] if date_done else None, body.get("tid")),
+            defect_write_repository.update_defect(
+                db, body, date_done, defect_write_rules.responsible_body_id(body),
+                new_responsible, assignment_status_value, assignment_created_value,
+                assignment_comment_value, user["fid"] if date_done else None,
             )
             _record_assignment_change(
                 db, int(body.get("tid")), user, current.get("responsible_user_fid"), new_responsible,
