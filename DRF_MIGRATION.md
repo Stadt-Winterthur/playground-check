@@ -80,3 +80,15 @@ Namen `_public_feature` und `_suspended` bleiben in `service.py` als
 Import-Aliase erhalten, sodass die bestehenden Aufrufstellen kompatibel bleiben.
 Neue DRF-Views importieren die GeoJSON-Transformation direkt aus dem Fachmodul.
 Weitere Datenbankabfragen und sämtliche Schreiboperationen bleiben unverändert.
+
+### Schritt 8 – Detailantworten fachlich modularisieren
+
+`playground_detail_serializers.py` enthält reine Transformationen für
+Inspektionsberichte (`report_dict`), Prüfkriterien (`criterion_dict`) und
+Spielgeräte-GeoJSON (`playdevice_feature`). SQL-Zugriffe und die Zusammenstellung
+der Daten verbleiben in `service.py`; die dortigen `_report_dict`- und
+`_criterion_dict`-Namen bleiben als kompatible Aliase erhalten.
+
+Die Testfälle sichern Standardwerte, Datenfelder und die Ausgabe bei fehlenden
+Inspektionsdaten ab. Endpunkte, Authentifizierung, SMTP, Schreibvorgänge und
+FID-/TID-Vergabe bleiben unverändert.

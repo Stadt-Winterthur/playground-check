@@ -17,6 +17,11 @@ from .config import settings
 from .db import connect
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
+from .playground_detail_serializers import (
+    report_dict as _report_dict,
+    criterion_dict as _criterion_dict,
+    playdevice_feature,
+)
 
 
 UNAUTHORIZED = "Sie sind entweder nicht als Kontrolleur in der Spielplatzkontrolle-Datenbank erfasst oder Sie haben keine Zugriffsberechtigung."
@@ -601,33 +606,6 @@ def _defect_dict(db: Connection, row: Mapping[str, Any], pictures: bool = True) 
     }
 
 
-def _report_dict(row: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        "tid": row.get("tid", -1), "inspectionType": row.get("inspection_type") or "",
-        "dateOfService": row.get("inspection_date"), "inspector": row.get("inspector") or "",
-        "inspectionText": row.get("inspection_text") or "", "inspectionDone": bool(row.get("inspection_done")),
-        "inspectionComment": row.get("inspection_comment") or "", "maintenanceText": row.get("maintenance_text") or "",
-        "maintenanceDone": bool(row.get("maintenance_done")), "maintenanceComment": row.get("maintenance_comment") or "",
-        "fallProtectionType": row.get("fall_protection") or "", "playdeviceFid": row.get("playdevice_fid") or 0,
-        "playdeviceDetailFid": row.get("playdevice_detail_fid") or 0,
-        "tidInspection": row.get("inspection_tid") if row.get("inspection_tid") is not None else -1,
-    }
-
-
-def _criterion_dict(row: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        "realm": row.get("realm") or "", "designation": "", "check": row.get("check_text") or "",
-        "checkShortText": row.get("check_short_text") or "", "maintenance": row.get("maintenance") or "",
-        "beforeOpening": False, "weekly": False, "monthly": False, "yearly": False,
-        "inspectionType": row.get("inspection_type") or "",
-        "currentInspectionReport": {
-            "tid": 0, "inspectionType": "", "inspector": "", "inspectionText": "", "inspectionDone": False,
-            "inspectionComment": "", "maintenanceText": "", "maintenanceDone": False,
-            "maintenanceComment": "", "fallProtectionType": "", "playdeviceFid": 0, "playdeviceDetailFid": 0,
-        },
-    }
-
-
 def _playdevice_rows(db: Connection, playground_id: int) -> list[Mapping[str, Any]]:
     return db.execute('''SELECT spg.fid, spg.bemerkungen AS comment,
         ST_X(spg.geom) AS x, ST_Y(spg.geom) AS y,
@@ -705,26 +683,10 @@ def _playdevice(db: Connection, row: Mapping[str, Any], inspection_type: str, wi
         defects = [_defect_dict(db, item, False) for item in db.execute(
             DEFECT_SELECT + " WHERE fid_spielgeraet=%s AND datum_erledigung IS NULL", (row["fid"],)
         ).fetchall()]
-    return {
-        "type": "Feature",
-        "properties": {
-            "fid": row["fid"], "supplier": row.get("supplier") or "", "material": "", "lebensdauer": 0,
-            "comment": row.get("comment") or "",
-            "type": {"name": row.get("type_name") or "", "description": row.get("type_description") or "", "standard": row.get("standard") or ""},
-            "dateOfService": DOTNET_MIN_DATE, "constructionDate": row.get("construction_date") or DOTNET_MIN_DATE,
-            "generalInspectionCriteria": general, "mainFallProtectionInspectionCriteria": main,
-            "secondaryFallProtectionInspectionCriteria": secondary,
-            "recommendedYearOfRenovation": row.get("recommended_year") or 0,
-            "renovationType": row.get("renovation_type") or 0,
-            "commentRecommendedYearOfRenovation": row.get("renovation_comment") or "",
-            "notToBeChecked": bool(row.get("not_to_be_checked")), "cannotBeChecked": bool(row.get("cannot_be_checked")),
-            "cannotBeCheckedReason": row.get("cannot_be_checked_reason") or "",
-            "hasOpenDefects": bool(row.get("has_open_defects")), "defects": defects,
-            "lastInspectionReports": last, "nextToLastInspectionReports": previous,
-            "pictureBase64String": "", "mapImageBase64String": "",
-        },
-        "geometry": {"type": "Point", "coordinates": [row.get("x"), row.get("y")]},
-    }
+    return playdevice_feature(
+        row, general=general, main=main, secondary=secondary, last=last,
+        previous=previous, defects=defects, min_date=DOTNET_MIN_DATE,
+    )
 
 
 def _playground_result(db: Connection, row: Mapping[str, Any], inspection_type: str, with_defects: bool, with_inspections: bool) -> dict[str, Any]:
