@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository, inspection_defect_repository, playground_detail_service
+from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -559,38 +559,20 @@ def _defect_creator_name(db: Connection, fid: Any) -> str:
 
 
 def _defect_dict(db: Connection, row: Mapping[str, Any], pictures: bool = True) -> dict[str, Any]:
-    before: list[int] = []
-    after: list[int] = []
-    if pictures:
-        rows = db.execute(
+    picture_rows = (
+        db.execute(
             'SELECT tid, zeitpunkt AS after_fixing FROM "wgr_sp_insp_mangel_foto" WHERE tid_maengel=%s',
             (row["tid"],),
         ).fetchall()
-        for picture in rows:
-            (after if picture["after_fixing"] else before).append(picture["tid"])
-    return {
-        "tid": row["tid"], "playdeviceFid": row.get("playdevice_fid") or 0,
-        "priority": row.get("priority") if row.get("priority") is not None else -1,
-        "defectPicsTids": before, "defectPicsAfterFixingTids": after,
-        "defectDescription": row.get("description") or "", "dateCreation": row.get("date_creation"),
-        "dateDone": row.get("date_done"), "done": row.get("done_by") is not None,
-        "doneByFid": row.get("done_by") or -1,
-        "doneByName": _defect_creator_name(db, row.get("done_by")),
-        "defectComment": row.get("comment") or "",
-        "defectsResponsibleBodyId": row.get("responsible_body_id") or -1,
-        "responsibleUserFid": row.get("responsible_user_fid") or -1,
-        "assignmentStatus": row.get("assignment_status") or "",
-        "dateAssignmentCreated": row.get("assignment_created"),
-        "dateAssignmentAccepted": row.get("assignment_accepted"),
-        "dateAssignmentRejected": row.get("assignment_rejected"),
-        "assignmentComment": row.get("assignment_comment") or "",
-        "infoMailSentAt": row.get("info_mail_sent_at"),
-        "infoMailRecipientName": row.get("info_mail_recipient_name") or "",
-        "createdByFid": row.get("created_by_fid") or -1,
-        "createdByName": _defect_creator_name(db, row.get("created_by_fid")),
-        "assignmentHistory": _assignment_history(db, int(row["tid"])),
-        "errorMessage": "",
-    }
+        if pictures else []
+    )
+    return inspection_defect_service.defect_payload(
+        row,
+        picture_rows=picture_rows,
+        done_by_name=_defect_creator_name(db, row.get("done_by")),
+        created_by_name=_defect_creator_name(db, row.get("created_by_fid")),
+        assignment_history=_assignment_history(db, int(row["tid"])),
+    )
 
 
 def _playdevice_rows(db: Connection, playground_id: int) -> list[Mapping[str, Any]]:
@@ -602,17 +584,11 @@ def _criteria(db: Connection, view: str, type_column: str, fid: int, inspection_
 
 
 def _inspection_history(db: Connection, fid: int, inspection_types: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    last: list[dict[str, Any]] = []
-    previous: list[dict[str, Any]] = []
-    for inspection_type in inspection_types:
-        rows = inspection_defect_repository.inspection_report_rows(db, fid, inspection_type)
-        if not rows:
-            continue
-        first_tid = rows[0].get("inspection_tid")
-        previous.append(_report_dict(rows[0]))
-        for row in rows[1:]:
-            (previous if row.get("inspection_tid") == first_tid else last).append(_report_dict(row))
-    return last, previous
+    return inspection_defect_service.inspection_history(
+        db, fid, inspection_types,
+        load_reports=inspection_defect_repository.inspection_report_rows,
+        serialize_report=_report_dict,
+    )
 
 
 def _playdevice(db: Connection, row: Mapping[str, Any], inspection_type: str, with_defects: bool, with_inspections: bool) -> dict[str, Any]:

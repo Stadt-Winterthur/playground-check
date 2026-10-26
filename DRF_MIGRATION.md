@@ -119,3 +119,11 @@ Die lesende Zusammenstellung des Spielplatz-Detailpayloads liegt neu in
 `service._playground_result`-Signatur bleibt als kompatibler Delegator erhalten.
 Datenbankverbindung, SQL-Texte, Dokument-Metadaten und bestehende FIDs werden
 unverändert weiterverwendet. Es gibt keine neuen Schreiboperationen.
+
+## Schritt 12: Lesende Inspektions- und Mangelaufbereitung
+
+Die Gruppierung von Inspektionsberichten und die Serialisierung von Mängeln
+liegen neu in `inspection_defect_service.py`. `service.py` übernimmt weiterhin
+Authentifizierung, Verbindung, Abfragen und die Anreicherung von Benutzernamen
+und Zuweisungsverlauf. Die neuen Funktionen führen weder SQL noch Schreibvorgänge
+aus; TIDs/FIDs und API-Antworten bleiben unverändert.
