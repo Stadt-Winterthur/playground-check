@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import playground_repository
+from . import playground_repository, inspection_defect_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -78,21 +78,7 @@ USER_SELECT = '''SELECT fid, nachname AS last_name, vorname AS first_name,
     zustaendigkeit AS responsibility, aktiv AS active, is_new
     FROM "wgr_sp_kontrolleur"'''
 
-DEFECT_SELECT = '''SELECT tid, fid_spielgeraet AS playdevice_fid,
-    id_dringlichkeit AS priority, beschrieb AS description,
-    datum_erledigung AS date_done, fid_erledigung AS done_by,
-    bemerkunng AS comment, datum AS date_creation,
-    id_zustaendig_behebung AS responsible_body_id,
-    fid_zustaendig_kontrolleur AS responsible_user_fid,
-    auftrag_status AS assignment_status,
-    datum_auftrag_zugewiesen AS assignment_created,
-    datum_auftrag_angenommen AS assignment_accepted,
-    datum_auftrag_abgelehnt AS assignment_rejected,
-    bemerkung_auftrag AS assignment_comment,
-    infomail_gesendet_am AS info_mail_sent_at,
-    infomail_empfaenger AS info_mail_recipient_name,
-    fid_erfassung AS created_by_fid
-    FROM "wgr_sp_insp_mangel"'''
+DEFECT_SELECT = inspection_defect_repository.DEFECT_SELECT
 
 
 def _bool(value: Any) -> bool:
@@ -612,33 +598,14 @@ def _playdevice_rows(db: Connection, playground_id: int) -> list[Mapping[str, An
 
 def _criteria(db: Connection, view: str, type_column: str, fid: int, inspection_type: str) -> list[dict[str, Any]]:
     # View and column names are fixed constants originating in the C# service.
-    sql = f'''SELECT bereich AS realm, pruefung AS check_text, wartung AS maintenance,
-        {type_column} AS inspection_type, pruefung_kurztext AS check_short_text
-        FROM "{view}" WHERE fid_spielgeraet=%s AND {type_column}=%s'''
-    return [_criterion_dict(row) for row in db.execute(sql, (fid, inspection_type)).fetchall()]
+    return [_criterion_dict(row) for row in inspection_defect_repository.criteria_rows(db, view, type_column, fid, inspection_type)]
 
 
 def _inspection_history(db: Connection, fid: int, inspection_types: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     last: list[dict[str, Any]] = []
     previous: list[dict[str, Any]] = []
     for inspection_type in inspection_types:
-        rows = db.execute('''SELECT tid, inspektionsart AS inspection_type,
-            datum_inspektion AS inspection_date, kontrolleur AS inspector,
-            pruefung_text AS inspection_text, pruefung_erledigt AS inspection_done,
-            pruefung_kommentar AS inspection_comment, wartung_text AS maintenance_text,
-            wartung_erledigung AS maintenance_done, wartung_kommentar AS maintenance_comment,
-            fallschutz AS fall_protection, tid_inspektion AS inspection_tid,
-            fid_spielgeraet AS playdevice_fid, fid_geraet_detail AS playdevice_detail_fid
-            FROM "wgr_sp_insp_bericht"
-            WHERE tid_inspektion IN (
-                SELECT tid_inspektion FROM "wgr_sp_insp_bericht"
-                WHERE fid_spielgeraet=%s AND inspektionsart=%s
-                GROUP BY tid_inspektion, datum_inspektion
-                ORDER BY datum_inspektion DESC LIMIT 2)
-              AND fid_spielgeraet=%s AND inspektionsart=%s
-            ORDER BY datum_inspektion, tid_inspektion DESC''',
-            (fid, inspection_type, fid, inspection_type),
-        ).fetchall()
+        rows = inspection_defect_repository.inspection_report_rows(db, fid, inspection_type)
         if not rows:
             continue
         first_tid = rows[0].get("inspection_tid")
@@ -663,9 +630,7 @@ def _playdevice(db: Connection, row: Mapping[str, Any], inspection_type: str, wi
         last, previous = _inspection_history(db, row["fid"], [f"{x['value']} ({x['short_value']})" for x in types])
     defects = None
     if with_defects:
-        defects = [_defect_dict(db, item, False) for item in db.execute(
-            DEFECT_SELECT + " WHERE fid_spielgeraet=%s AND datum_erledigung IS NULL", (row["fid"],)
-        ).fetchall()]
+        defects = [_defect_dict(db, item, False) for item in inspection_defect_repository.open_device_defects(db, row["fid"])]
     return playdevice_feature(
         row, general=general, main=main, secondary=secondary, last=last,
         previous=previous, defects=defects, min_date=DOTNET_MIN_DATE,
@@ -885,7 +850,7 @@ def get_defect(request: Request) -> Response:
     if error:
         return error
     with connect() as db:
-        row = db.execute(DEFECT_SELECT + " WHERE tid=%s", (int(request.query.get("tid", "0")),)).fetchone()
+        row = inspection_defect_repository.defect_by_tid(db, int(request.query.get("tid", "0")))
         result = _defect_dict(db, row) if row else None
     return Response.json(result)
 

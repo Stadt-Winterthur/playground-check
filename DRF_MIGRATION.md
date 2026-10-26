@@ -102,3 +102,12 @@ Parameterbindungen bleiben unverändert. Die Verbindung und ihre Lebensdauer
 verbleiben beim aufrufenden Service. Die bisherige Funktion `_playdevice_rows`
 ist als delegierender Wrapper erhalten. Keine Schemaänderungen, keine neuen
 FID-/TID-Werte und keine Änderungen an Schreib-Endpunkten.
+
+### Schritt 10 – Inspektions- und Mangel-Repository
+
+Lesende SQL-Abfragen fuer Pruefkriterien, Inspektionsberichte und Maengel liegen
+neu in `inspection_defect_repository.py`. Die Service-Funktionen uebernehmen
+weiterhin die fachliche Datenaufbereitung. Die Datenbankverbindung wird vom
+Aufrufer uebergeben; SQL und Parameterbindung bleiben unveraendert. Zugelassene
+View-/Spaltenkombinationen der Pruefkriterien sind explizit festgelegt.
+Schreiboperationen, TID-/FID-Vergabe und SMTP bleiben unveraendert.
