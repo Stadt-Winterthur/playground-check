@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import user_repository, user_write_repository, document_write_repository, push_repository, assignment_repository
+from . import user_repository, user_write_repository, document_write_repository, push_repository, assignment_repository, mail_repository, inspection_validation_repository
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
@@ -834,27 +834,16 @@ def send_info_mail(request: Request) -> Response:
 
     try:
         with connect() as db:
-            row = db.execute(inspection_defect_repository.DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
+            row = mail_repository.defect(db, tid)
             if not row:
                 return Response.text("Mangel nicht gefunden.", 404)
-            recipient = db.execute('''SELECT fid, TRIM(CONCAT(vorname, ' ', nachname)) AS name,
-                TRIM(LOWER(e_mail)) AS email, aktiv AS active
-                FROM "wgr_sp_kontrolleur" WHERE fid=%s''', (row.get("responsible_user_fid"),)).fetchone()
+            recipient = mail_repository.recipient(db, row.get("responsible_user_fid"))
             if not recipient or not recipient.get("active") or not recipient.get("email") or not _valid_mail_address(recipient["email"]):
                 return Response.text("Die zuständige Person hat keine gültige aktive E-Mail-Adresse.", 400)
-            device_row = db.execute('''SELECT sp.name AS playground_name,
-                TRIM(CONCAT(COALESCE(sp.strassenname,''), ' ', COALESCE(sp.hausnummer,''))) AS address,
-                gart.value AS device_type, lief.name AS supplier, geraet.bau_dat AS construction_date,
-                geraet.bemerkungen AS device_comment
-                FROM "gr_v_spielgeraete" geraet
-                JOIN "wgr_sp_spielplatz" sp ON sp.fid=geraet.fid_spielplatz
-                LEFT JOIN "wgr_sp_spielgeraeteart_tbd" gart ON geraet.id_geraeteart=gart.id
-                LEFT JOIN "wgr_sp_lieferant" lief ON geraet.id_lieferant=lief.fid
-                WHERE geraet.fid=%s''', (row["playdevice_fid"],)).fetchone()
+            device_row = mail_repository.device(db, row["playdevice_fid"])
             if not device_row:
                 return Response.text("Zugehöriges Spielgerät nicht gefunden.", 404)
-            picture_rows = db.execute('''SELECT tid, picture_base64 AS picture
-                FROM "wgr_sp_insp_mangel_foto" WHERE tid_maengel=%s ORDER BY tid''', (tid,)).fetchall()
+            picture_rows = mail_repository.pictures(db, tid)
             attachments = []
             for index, picture in enumerate(picture_rows, 1):
                 data, mime = _decode_image(picture.get("picture"))
@@ -868,11 +857,8 @@ def send_info_mail(request: Request) -> Response:
         # No database transaction is held open during the external SMTP call.
         deliver(message, recipient["email"])
         with connect() as db:
-            db.execute('''UPDATE "wgr_sp_insp_mangel" SET
-                infomail_gesendet_am=CURRENT_TIMESTAMP, infomail_empfaenger=%s
-                WHERE tid=%s AND fid_zustaendig_kontrolleur=%s''',
-                (recipient["name"], tid, recipient_fid))
-            updated = db.execute(inspection_defect_repository.DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
+            mail_repository.mark_sent(db, tid, recipient["name"], recipient_fid)
+            updated = mail_repository.defect(db, tid)
             result = _defect_dict(db, updated) if updated else None
         return Response.json(result)
     except (OSError, TimeoutError, MailConfigurationError, __import__("smtplib").SMTPException) as exc:
@@ -1061,51 +1047,33 @@ def post_inspections(request: Request) -> Response:
     service_date = date.today()
     try:
         with connect() as db:
-            inspector = db.execute('SELECT fid FROM "wgr_sp_kontrolleur" WHERE trim(lower(e_mail))=%s',
-                                   (user["mailAddress"],)).fetchone()
-            type_row = db.execute('SELECT id FROM "wgr_sp_inspektionsart_tbd" WHERE value=%s',
-                                  (base_type,)).fetchone()
+            inspector = inspection_validation_repository.inspector(db, user["mailAddress"])
+            type_row = inspection_validation_repository.inspection_type(db, base_type)
             first_fid = int(reports[0].get("playdeviceFid") or 0)
-            playground = db.execute('SELECT fid_spielplatz FROM "gr_v_spielgeraete" WHERE fid=%s',
-                                    (first_fid,)).fetchone()
+            playground = inspection_validation_repository.device_playground(db, first_fid)
             inspector_fid = inspector["fid"] if inspector else None
             type_id = type_row["id"] if type_row else None
             playground_fid = playground["fid_spielplatz"] if playground else None
             if not inspector_fid or not type_id or not playground_fid:
                 return Response.json({"errorMessage": "SPK-11"})
-            authorized = db.execute(
-                '''SELECT 1 FROM "wgr_sp_inspart_kontr"
-                   WHERE fid_kontrolleur=%s AND fid_spielplatz=%s AND id_inspektionsart=%s
-                   LIMIT 1''',
-                (inspector_fid, playground_fid, type_id),
-            ).fetchone()
+            authorized = inspection_validation_repository.is_authorized(db, inspector_fid, playground_fid, type_id)
             if not authorized:
                 return Response.json({"errorMessage": "SPK-11"})
             for report in reports:
                 fid = int(report.get("playdeviceFid") or 0)
                 if not fid:
                     return Response.json({"errorMessage": "SPK-12"})
-                device_playground = db.execute(
-                    'SELECT fid_spielplatz FROM "gr_v_spielgeraete" WHERE fid=%s', (fid,)
-                ).fetchone()
+                device_playground = inspection_validation_repository.device_playground(db, fid)
                 if not device_playground or device_playground["fid_spielplatz"] != playground_fid:
                     return Response.json({"errorMessage": "SPK-12"})
             inspection_write_repository.lock_inspection_tables(db)
-            duplicate = db.execute(
-                '''SELECT 1 FROM "wgr_sp_inspektion"
-                   WHERE fid_spielplatz=%s AND id_inspektionsart=%s AND datum_inspektion::date=%s
-                   LIMIT 1''',
-                (playground_fid, type_id, service_date),
-            ).fetchone()
+            duplicate = inspection_validation_repository.duplicate_inspection(db, playground_fid, type_id, service_date)
             if duplicate:
                 return Response.json({"errorMessage": "SPK-2"})
             target = None
             target_column = {1: "dat_naech_visu_insp", 2: "dat_naech_oper_insp", 3: "dat_naech_haupt_insp"}.get(type_id)
             if target_column and playground_fid:
-                target_row = db.execute(
-                    f'SELECT ({target_column})::date AS target FROM "wgr_sp_spielplatz" WHERE fid=%s',
-                    (playground_fid,),
-                ).fetchone()
+                target_row = inspection_validation_repository.target_date_row(db, playground_fid, target_column)
                 target = target_row["target"] if target_row else None
             inspection_tid = inspection_write_repository.insert_inspection(
                 db, type_id, playground_fid, service_date, inspector_fid, target,
@@ -1114,9 +1082,7 @@ def post_inspections(request: Request) -> Response:
                 fid = int(report.get("playdeviceFid") or 0)
                 if not fid:
                     raise ValueError("Missing playdevice fid")
-                device = db.execute(
-                    'SELECT nicht_zu_pruefen, nicht_pruefbar FROM "gr_v_spielgeraete" WHERE fid=%s', (fid,)
-                ).fetchone()
+                device = inspection_validation_repository.device_check_state(db, fid)
                 if not device or device.get("nicht_zu_pruefen") or device.get("nicht_pruefbar"):
                     continue
                 inspection_write_repository.insert_report(
