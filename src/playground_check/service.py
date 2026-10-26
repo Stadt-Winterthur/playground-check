@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import user_repository
+from . import user_repository, user_write_repository
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
@@ -218,17 +218,11 @@ def login(request: Request) -> Response:
                         response = Response.text("Zu viele Login-Versuche. Bitte versuchen Sie es in Kürze erneut.", 429)
                         response.headers.append(("Retry-After", str(max(1, 3 - int(elapsed)))))
                         return response
-                db.execute(
-                    "UPDATE \"wgr_sp_kontrolleur\" SET letzter_anmeldeversuch=CURRENT_TIMESTAMP "
-                    "WHERE trim(lower(e_mail))=%s", (email,),
-                )
+                user_write_repository.record_login_attempt(db, email)
                 password_ok, needs_upgrade = verify_passphrase(row.get("pwd") or "", password, email)
                 if password_ok and row.get("active"):
                     if needs_upgrade:
-                        db.execute(
-                            "UPDATE \"wgr_sp_kontrolleur\" SET pwd=%s WHERE trim(lower(e_mail))=%s",
-                            (hash_passphrase(password, email), email),
-                        )
+                        user_write_repository.update_password(db, email, hash_passphrase(password, email))
                     user = _user_dict(row)
                     user["lastName"] = user["lastName"] or "Nachname unbekannt"
                     user["firstName"] = user["firstName"] or "Vorname unbekannt"
@@ -239,11 +233,9 @@ def login(request: Request) -> Response:
                 return Response.text("Keine oder falsche Login-Daten.", 401)
 
             # Preserved original quirk: dryRun also reaches this insert branch.
-            db.execute(
-                '''INSERT INTO "wgr_sp_kontrolleur"
-                    (nachname, vorname, e_mail, pwd, rolle, aktiv, is_new)
-                    VALUES (%s, %s, %s, %s, 'inspector', false, true)''',
-                (body.get("lastName") or "", body.get("firstName") or "", email, hash_passphrase(password, email)),
+            user_write_repository.register_pending_user(
+                db, body.get("lastName") or "", body.get("firstName") or "", email,
+                hash_passphrase(password, email),
             )
         return Response.text(
             UNAUTHORIZED + "Der Administrator wird informiert und wird Ihnen gegebenenfalls den Zugriff gewähren.", 401
@@ -306,30 +298,23 @@ def update_user(request: Request) -> Response:
             existing = user_repository.users_by_email(db, email)
             if len(existing) != 1:
                 return Response.json({"errorMessage": "SPK-3"})
-            active_admins = db.execute(
-                "SELECT count(*) AS count FROM \"wgr_sp_kontrolleur\" WHERE aktiv=true AND rolle='administrator'"
-            ).fetchone()["count"]
+            active_admins = user_write_repository.active_admin_count(db)
             old = existing[0]
             if old["role"] == "administrator" and active_admins == 1:
                 if body.get("role") != "administrator" or not _bool(body.get("active")):
                     return Response.json({"errorMessage": "SPK-3"})
-            affected = db.execute(
-                '''UPDATE "wgr_sp_kontrolleur"
-                   SET nachname=%s, vorname=%s, rolle=%s, zustaendigkeit=%s, aktiv=%s, is_new=%s
-                   WHERE trim(lower(e_mail))=%s''',
-                (body.get("lastName") or "", body.get("firstName") or "", role,
-                 responsibility or None,
-                 _bool(body.get("active")), _bool(body.get("isNew")), email),
-            ).rowcount
+            affected = user_write_repository.update_user(
+                db, email, body.get("lastName") or "", body.get("firstName") or "",
+                role, responsibility or None, _bool(body.get("active")), _bool(body.get("isNew")),
+            )
             password_affected = 0
             if change_passphrase:
                 password = password.strip()
                 if len(password) < 8:
                     return Response.json({"errorMessage": "SPK-9"})
-                password_affected = db.execute(
-                    "UPDATE \"wgr_sp_kontrolleur\" SET pwd=%s WHERE trim(lower(e_mail))=%s",
-                    (hash_passphrase(password, email), email),
-                ).rowcount
+                password_affected = user_write_repository.update_password(
+                    db, email, hash_passphrase(password, email),
+                )
             if affected == 1 and (not change_passphrase or password_affected == 1):
                 body.setdefault("errorMessage", "")
                 return Response.json(body)
@@ -349,12 +334,10 @@ def delete_user(request: Request) -> Response:
         users = user_repository.users_by_email(db, email)
         if len(users) != 1:
             return Response.json({"errorMessage": "SPK-3"})
-        count = db.execute(
-            "SELECT count(*) AS count FROM \"wgr_sp_kontrolleur\" WHERE aktiv=true AND rolle='administrator'"
-        ).fetchone()["count"]
+        count = user_write_repository.active_admin_count(db)
         if users[0]["role"] == "administrator" and count == 1:
             return Response.json({"errorMessage": "SPK-3"})
-        if db.execute("UPDATE \"wgr_sp_kontrolleur\" SET aktiv=false WHERE trim(lower(e_mail))=%s", (email,)).rowcount == 1:
+        if user_write_repository.deactivate_user(db, email) == 1:
             return Response(b"", 200, "application/json; charset=utf-8")
     return Response.json({"errorMessage": "SPK-3"})
 
