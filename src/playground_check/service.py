@@ -878,7 +878,7 @@ def send_info_mail(request: Request) -> Response:
 
     try:
         with connect() as db:
-            row = db.execute(DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
+            row = db.execute(inspection_defect_repository.DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
             if not row:
                 return Response.text("Mangel nicht gefunden.", 404)
             recipient = db.execute('''SELECT fid, TRIM(CONCAT(vorname, ' ', nachname)) AS name,
@@ -916,7 +916,7 @@ def send_info_mail(request: Request) -> Response:
                 infomail_gesendet_am=CURRENT_TIMESTAMP, infomail_empfaenger=%s
                 WHERE tid=%s AND fid_zustaendig_kontrolleur=%s''',
                 (recipient["name"], tid, recipient_fid))
-            updated = db.execute(DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
+            updated = db.execute(inspection_defect_repository.DEFECT_SELECT + " WHERE tid=%s", (tid,)).fetchone()
             result = _defect_dict(db, updated) if updated else None
         return Response.json(result)
     except (OSError, TimeoutError, MailConfigurationError, __import__("smtplib").SMTPException) as exc:
