@@ -15,6 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
+from . import user_repository
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
@@ -72,13 +73,7 @@ VALID_RESPONSIBILITIES = {
     "Revier", "Spielplatzverantwortlicher", "Projektleiter",
 }
 
-USER_SELECT = '''SELECT fid, nachname AS last_name, vorname AS first_name,
-    trim(lower(e_mail)) AS email, pwd, letzter_anmeldeversuch AS last_login_attempt,
-    CURRENT_TIMESTAMP(0)::TIMESTAMP AS database_time, rolle AS role,
-    zustaendigkeit AS responsibility, aktiv AS active, is_new
-    FROM "wgr_sp_kontrolleur"'''
-
-DEFECT_SELECT = inspection_defect_repository.DEFECT_SELECT
+USER_SELECT = user_repository.USER_SELECT
 
 
 def _bool(value: Any) -> bool:
@@ -171,7 +166,7 @@ def current_user(request: Request, role: str | None = None, dry_run: bool = Fals
     if not claimed:
         return None
     with connect() as db:
-        row = db.execute(USER_SELECT + " WHERE trim(lower(e_mail))=%s", (claimed["mailAddress"],)).fetchone()
+        row = user_repository.user_by_email(db, claimed["mailAddress"])
     if not row or not row["active"]:
         return None
     user = _user_dict(row)
@@ -215,9 +210,7 @@ def login(request: Request) -> Response:
     dry_run = _bool(request.query.get("dryRun"))
     try:
         with connect() as db:
-            row = None if dry_run else db.execute(
-                USER_SELECT + " WHERE trim(lower(e_mail))=%s", (email,)
-            ).fetchone()
+            row = None if dry_run else user_repository.user_by_email(db, email)
             if row:
                 if row.get("last_login_attempt") is not None:
                     elapsed = (row["database_time"] - row["last_login_attempt"]).total_seconds()
@@ -277,13 +270,8 @@ def get_users(request: Request) -> Response:
     if error:
         return error
     email = request.query.get("email", "").strip().lower()
-    sql, params = USER_SELECT, ()
-    if email:
-        sql += " WHERE trim(lower(e_mail))=%s"
-        params = (email,)
-    sql += " ORDER BY vorname, nachname"
     with connect() as db:
-        rows = db.execute(sql, params).fetchall()
+        rows = user_repository.users(db, email)
     return Response.json([_user_dict(row) for row in rows if row.get("email")])
 
 
@@ -292,7 +280,7 @@ def get_assignable_users(request: Request) -> Response:
     if error:
         return error
     with connect() as db:
-        rows = db.execute(USER_SELECT + " WHERE aktiv=true ORDER BY vorname, nachname").fetchall()
+        rows = user_repository.assignable_users(db)
     return Response.json([_user_dict(row) for row in rows])
 
 
@@ -315,7 +303,7 @@ def update_user(request: Request) -> Response:
     change_passphrase = _bool(request.query.get("changePassphrase"))
     try:
         with connect() as db:
-            existing = db.execute(USER_SELECT + " WHERE trim(lower(e_mail))=%s", (email,)).fetchall()
+            existing = user_repository.users_by_email(db, email)
             if len(existing) != 1:
                 return Response.json({"errorMessage": "SPK-3"})
             active_admins = db.execute(
@@ -358,7 +346,7 @@ def delete_user(request: Request) -> Response:
     if not email:
         return Response.json({"errorMessage": "SPK-3"})
     with connect() as db:
-        users = db.execute(USER_SELECT + " WHERE trim(lower(e_mail))=%s", (email,)).fetchall()
+        users = user_repository.users_by_email(db, email)
         if len(users) != 1:
             return Response.json({"errorMessage": "SPK-3"})
         count = db.execute(
