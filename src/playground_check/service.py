@@ -15,7 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
-from . import user_repository, user_write_repository, document_write_repository, push_repository
+from . import user_repository, user_write_repository, document_write_repository, push_repository, assignment_repository
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
@@ -469,10 +469,7 @@ def get_map_image(request: Request) -> Response:
 def _user_name(db: Connection, fid: Any) -> str:
     if not fid:
         return ""
-    row = db.execute(
-        'SELECT vorname AS first_name, nachname AS last_name FROM "wgr_sp_kontrolleur" WHERE fid=%s',
-        (fid,),
-    ).fetchone()
+    row = assignment_repository.user_name_row(db, fid)
     if not row:
         return ""
     return f"{row.get('first_name') or ''} {row.get('last_name') or ''}".strip()
@@ -486,25 +483,14 @@ def _record_assignment_change(
     if previous == new:
         return
     changed_by_name = f"{changed_by.get('firstName') or ''} {changed_by.get('lastName') or ''}".strip()
-    db.execute(
-        '''INSERT INTO "wgr_sp_mangel_zuweisung_hist"
-            (tid_mangel, geaendert_am, geaendert_durch_fid, geaendert_durch_name,
-             vorher_fid, vorher_name, nachher_fid, nachher_name)
-            VALUES (%s, CURRENT_TIMESTAMP, %s, %s, %s, %s, %s, %s)''',
-        (defect_tid, changed_by.get("fid"), changed_by_name or None,
-         previous, _user_name(db, previous) or None, new, _user_name(db, new) or None),
+    assignment_repository.record_assignment_change(
+        db, defect_tid, changed_by.get("fid"), changed_by_name or None,
+        previous, _user_name(db, previous) or None, new, _user_name(db, new) or None,
     )
 
 
 def _assignment_history(db: Connection, defect_tid: int) -> list[dict[str, Any]]:
-    rows = db.execute(
-        '''SELECT id, geaendert_am AS changed_at, geaendert_durch_fid AS changed_by_fid,
-            geaendert_durch_name AS changed_by_name, vorher_fid AS previous_fid,
-            vorher_name AS previous_name, nachher_fid AS new_fid, nachher_name AS new_name
-            FROM "wgr_sp_mangel_zuweisung_hist"
-            WHERE tid_mangel=%s ORDER BY geaendert_am DESC, id DESC''',
-        (defect_tid,),
-    ).fetchall()
+    rows = assignment_repository.assignment_history_rows(db, defect_tid)
     return [{
         "id": row.get("id"),
         "changedAt": row.get("changed_at"),
@@ -832,23 +818,10 @@ def assignment_status(request: Request, accepted: bool) -> Response:
     body = request.json() or {}
     comment = (body.get("assignmentComment") or "").strip() or None
     with connect() as db:
-        assignment_matches_user = '''(
-            mangel.fid_zustaendig_kontrolleur=%s OR EXISTS (
-                SELECT 1 FROM "wgr_sp_kontrolleur" kontrolleur
-                WHERE kontrolleur.fid=mangel.fid_zustaendig_kontrolleur
-                AND trim(lower(kontrolleur.e_mail))=%s
-            )
-        )'''
-        params = (comment, int(request.params["tid"]), user["fid"], user["mailAddress"])
-        if accepted:
-            cursor = db.execute(f'''UPDATE "wgr_sp_insp_mangel" AS mangel SET auftrag_status='angenommen',
-                datum_auftrag_angenommen=CURRENT_TIMESTAMP, datum_auftrag_abgelehnt=NULL,
-                bemerkung_auftrag=%s WHERE tid=%s AND {assignment_matches_user}''', params)
-        else:
-            cursor = db.execute(f'''UPDATE "wgr_sp_insp_mangel" AS mangel SET auftrag_status='abgelehnt',
-                datum_auftrag_abgelehnt=CURRENT_TIMESTAMP, datum_auftrag_angenommen=NULL, bemerkung_auftrag=%s
-                WHERE tid=%s AND {assignment_matches_user}''', params)
-    return Response.json({"errorMessage": "" if cursor.rowcount == 1 else "SPK-3"})
+        affected = assignment_repository.update_assignment_status(
+            db, int(request.params["tid"]), user["fid"], user["mailAddress"], comment, accepted,
+        )
+    return Response.json({"errorMessage": "" if affected == 1 else "SPK-3"})
 
 
 def send_info_mail(request: Request) -> Response:
