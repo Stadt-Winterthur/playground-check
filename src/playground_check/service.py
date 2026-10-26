@@ -16,6 +16,7 @@ from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, 
 from .config import settings
 from .db import connect
 from .http import Request, Response
+from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 
 
 UNAUTHORIZED = "Sie sind entweder nicht als Kontrolleur in der Spielplatzkontrolle-Datenbank erfasst oder Sie haben keine Zugriffsberechtigung."
@@ -396,20 +397,6 @@ def renovation_types(request: Request) -> Response:
     return Response.json([row["value"] for row in rows])
 
 
-def _suspended(row: Mapping[str, Any]) -> bool:
-    today = date.today()
-    start = _date_value(row.get("suspend_from"))
-    end = _date_value(row.get("suspend_to"))
-    start_date = start.date() if isinstance(start, datetime) else start
-    end_date = end.date() if isinstance(end, datetime) else end
-    if start_date is None and end_date is None:
-        return False
-    if start_date is None:
-        return today <= end_date
-    if end_date is None:
-        return today >= start_date
-    return start_date <= today <= end_date
-
 
 def only_names(request: Request) -> Response:
     user, error = require_user(request)
@@ -464,19 +451,6 @@ def playground_only_names_data(user: Mapping[str, Any] | None, query: Mapping[st
         })
     return Response.json(result)
 
-
-def _public_feature(row: Mapping[str, Any] | None = None, error: str = "") -> dict[str, Any]:
-    row = row or {}
-    coordinates = [] if row.get("x") is None else [row["x"], row["y"]]
-    return {
-        "type": "Feature",
-        "properties": {
-            "uuid": str(row.get("uuid") or ""), "nummer": row.get("number") if row.get("number") is not None else -1,
-            "name": row.get("name") or "", "streetName": row.get("street_name") or "", "houseNo": row.get("house_no") or "",
-        },
-        "geometry": {"type": "Point", "coordinates": coordinates},
-        "errorMessage": error,
-    }
 
 
 def public_playgrounds(request: Request) -> Response:

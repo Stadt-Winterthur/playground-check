@@ -9,7 +9,8 @@ from playground_check.service import require_user, playground_only_names_data, p
 
 from playground_check import __version__
 from playground_check.db import connect
-from playground_check.service import _public_feature, playground_by_name_data
+from playground_check.playground_reads import public_feature as _public_feature
+from playground_check.service import playground_by_name_data
 
 
 @api_view(["GET"])

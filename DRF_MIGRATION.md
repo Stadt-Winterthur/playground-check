@@ -70,3 +70,13 @@ die ursprüngliche HTTP-Statuszahl, den Content-Type und den Klartext-Body.
 Rollenabhängige fachliche Filter bleiben weiterhin in der Fachlogik; native
 rollenbezogene Permissions kommen erst mit entsprechenden geschützten
 Schreib-Endpunkten hinzu. Weder Login noch TID-/FID-Vergabe wurden verändert.
+
+
+### Schritt 7 – erste fachliche Modularisierung
+
+`playground_reads.py` enthält HTTP- und datenbankunabhängige Transformationen der
+Spielplatz-Leseantworten (GeoJSON und Inspektionssistierung). Die bisherigen
+Namen `_public_feature` und `_suspended` bleiben in `service.py` als
+Import-Aliase erhalten, sodass die bestehenden Aufrufstellen kompatibel bleiben.
+Neue DRF-Views importieren die GeoJSON-Transformation direkt aus dem Fachmodul.
+Weitere Datenbankabfragen und sämtliche Schreiboperationen bleiben unverändert.
