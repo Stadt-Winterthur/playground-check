@@ -92,3 +92,13 @@ der Daten verbleiben in `service.py`; die dortigen `_report_dict`- und
 Die Testfälle sichern Standardwerte, Datenfelder und die Ausgabe bei fehlenden
 Inspektionsdaten ab. Endpunkte, Authentifizierung, SMTP, Schreibvorgänge und
 FID-/TID-Vergabe bleiben unverändert.
+
+### Schritt 9 – Repository-Schicht für Spielplatzdetails
+
+`playground_repository.py` übernimmt drei lesende PostgreSQL-Abfragen:
+Spielplatz nach Name, Spielplatz über bestehende Spielgeräte-FID und die
+Spielgerätezeilen eines Spielplatzes. Die bestehenden SQL-Statements und
+Parameterbindungen bleiben unverändert. Die Verbindung und ihre Lebensdauer
+verbleiben beim aufrufenden Service. Die bisherige Funktion `_playdevice_rows`
+ist als delegierender Wrapper erhalten. Keine Schemaänderungen, keine neuen
+FID-/TID-Werte und keine Änderungen an Schreib-Endpunkten.

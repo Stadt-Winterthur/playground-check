@@ -15,6 +15,7 @@ from psycopg import Connection
 from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
 from .config import settings
 from .db import connect
+from . import playground_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
 from .playground_detail_serializers import (
@@ -607,25 +608,7 @@ def _defect_dict(db: Connection, row: Mapping[str, Any], pictures: bool = True) 
 
 
 def _playdevice_rows(db: Connection, playground_id: int) -> list[Mapping[str, Any]]:
-    return db.execute('''SELECT spg.fid, spg.bemerkungen AS comment,
-        ST_X(spg.geom) AS x, ST_Y(spg.geom) AS y,
-        gart.short_value AS type_name, gart.value AS type_description,
-        spg.norm AS standard, lief.name AS supplier,
-        spg.empfohlenes_sanierungsjahr AS recommended_year,
-        spg.bemerkung_empf_sanierung AS renovation_comment,
-        spg.nicht_zu_pruefen AS not_to_be_checked,
-        spg.nicht_pruefbar AS cannot_be_checked,
-        spg.grund_nicht_pruefbar AS cannot_be_checked_reason,
-        spg.bau_dat AS construction_date, spg.id_sanierungsart AS renovation_type,
-        EXISTS (
-            SELECT 1 FROM "wgr_sp_insp_mangel" mangel
-            WHERE mangel.fid_spielgeraet=spg.fid AND mangel.fid_erledigung IS NULL
-        ) AS has_open_defects
-        FROM "gr_v_spielgeraete" spg
-        LEFT JOIN "wgr_sp_spielgeraeteart_tbd" gart ON spg.id_geraeteart=gart.id
-        LEFT JOIN "wgr_sp_lieferant" lief ON spg.id_lieferant=lief.fid
-        WHERE spg.fid_spielplatz=%s''', (playground_id,)).fetchall()
-
+    return playground_repository.playdevice_rows(db, playground_id)
 
 def _criteria(db: Connection, view: str, type_column: str, fid: int, inspection_type: str) -> list[dict[str, Any]]:
     # View and column names are fixed constants originating in the C# service.
@@ -747,17 +730,7 @@ def _playground_result(db: Connection, row: Mapping[str, Any], inspection_type: 
 def playground_by_name_data(query: Mapping[str, str]) -> dict[str, Any]:
     """Return the established detail payload independently of the HTTP framework."""
     with connect() as db:
-        row = db.execute('''SELECT sp.fid AS id, sp.name,
-            sp.inspektion_aussetzen_von AS suspend_from,
-            sp.inspektion_aussetzen_bis AS suspend_to,
-            insp.datum_inspektion AS date_of_last_inspection, '' AS address
-            FROM "wgr_sp_spielplatz" sp
-            LEFT JOIN (SELECT fid_spielplatz, MAX(datum_inspektion) AS max_datum
-                       FROM "wgr_sp_inspektion" GROUP BY fid_spielplatz) insp_max
-              ON insp_max.fid_spielplatz=sp.fid
-            LEFT JOIN "wgr_sp_inspektion" insp
-              ON insp.fid_spielplatz=insp_max.fid_spielplatz AND insp.datum_inspektion=insp_max.max_datum
-            WHERE sp.name=%s LIMIT 1''', (query.get("name", ""),)).fetchone()
+        row = playground_repository.playground_by_name(db, query.get("name", ""))
         if not row:
             raise LookupError("Sequence contains no elements")
         inspection = query.get("inspectiontype", query.get("inspectionType", ""))
@@ -812,12 +785,7 @@ def playground_by_device_data(fid: int) -> dict[str, Any]:
     if fid <= 0:
         return {"id": 0, "name": "", "address": "", "playdevices": []}
     with connect() as db:
-        row = db.execute('''SELECT sp.fid AS id, sp.name,
-            TRIM(CONCAT(COALESCE(sp.strassenname,''), ' ', COALESCE(sp.hausnummer,''))) AS address,
-            sp.inspektion_aussetzen_von AS suspend_from, sp.inspektion_aussetzen_bis AS suspend_to,
-            NULL::date AS date_of_last_inspection
-            FROM "gr_v_spielgeraete" geraet JOIN "wgr_sp_spielplatz" sp ON sp.fid=geraet.fid_spielplatz
-            WHERE geraet.fid=%s''', (fid,)).fetchone()
+        row = playground_repository.playground_by_device(db, fid)
         if not row:
             return {"id": 0, "name": "", "address": "", "playdevices": []}
         devices = [_playdevice(db, item, "", False, False) for item in _playdevice_rows(db, row["id"]) if item["fid"] == fid]
