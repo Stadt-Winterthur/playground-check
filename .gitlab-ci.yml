@@ -17,6 +17,7 @@ quality:
 
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    SMTP_FROM: "test-sender@example.org"
 
   cache:
     key: "pip-$CI_COMMIT_REF_SLUG"
