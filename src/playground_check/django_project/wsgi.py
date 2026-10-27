@@ -60,8 +60,21 @@ def application(environ, start_response):
         else:
             defect_target = f"/Defect/{segments[1]}/{segments[2].lower()}/"
     method = environ.get("REQUEST_METHOD", "GET").upper()
+    # Inspection and playdevice operations migrate as one functional group.
+    # Keep the existing GET inspection type lists in their earlier DRF views.
+    inspection_device_target = None
+    if relative_path.casefold().rstrip("/") == "/inspection" and method == "POST":
+        inspection_device_target = "/Inspection/"
+    elif relative_path.casefold().rstrip("/") == "/playdevice" and method in {"POST", "PUT"}:
+        inspection_device_target = "/Playdevice/"
+    else:
+        device_picture_match = re.fullmatch(
+            r"/Playdevice/(\d+)/Picture/?", relative_path, re.IGNORECASE,
+        )
+        if device_picture_match and method in {"GET", "PUT"}:
+            inspection_device_target = f"/Playdevice/{device_picture_match.group(1)}/Picture/"
     is_defect = bool(defect_target and method in defect_allowed)
-    if is_defect or (method == "GET" and (is_public_detail or is_device_lookup or any(
+    if is_defect or inspection_device_target or (method == "GET" and (is_public_detail or is_device_lookup or any(
         route.casefold() == candidate.rstrip("/").casefold() for candidate in migrated
     ))):
         # Django receives a path without the external application's PathBase.
@@ -71,6 +84,8 @@ def application(environ, start_response):
         # Normalize case and slash variants to Django's declared canonical URL.
         if is_defect:
             target = defect_target
+        elif inspection_device_target:
+            target = inspection_device_target
         elif is_public_detail:
             target = public_detail_prefix + route[len(public_detail_prefix):] + "/"
         elif is_device_lookup:

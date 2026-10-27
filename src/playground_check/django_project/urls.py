@@ -2,11 +2,14 @@
 
 from django.urls import path
 
-from . import defect_views
+from . import defect_views, inspection_device_views
 
 from .views import django_health, health, public_playgrounds, inspection_types, renovation_types, public_playground_detail, playground_by_name, playground_only_names, playground_by_device
 
 urlpatterns = [
+    path("Inspection/", inspection_device_views.create_inspection, name="inspection-create"),
+    path("Playdevice/", inspection_device_views.playdevice, name="playdevice-write"),
+    path("Playdevice/<int:fid>/Picture/", inspection_device_views.playdevice_picture, name="playdevice-picture"),
     path("Defect/", defect_views.defect, name="defect"),
     path("Defect/Overview/", defect_views.defect_overview, name="defect-overview"),
     path("Defect/Picture/<int:tid>/", defect_views.defect_picture, name="defect-picture"),
