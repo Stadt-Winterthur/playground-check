@@ -1,12 +1,23 @@
-"""Migrated read-only API routes; all other routes remain on legacy WSGI."""
+"""Explicit Django API routes; unmigrated requests retain legacy WSGI."""
 
 from django.urls import path
 
-from . import defect_views, inspection_device_views
+from . import account_document_push_views, defect_views, inspection_device_views
 
 from .views import django_health, health, public_playgrounds, inspection_types, renovation_types, public_playground_detail, playground_by_name, playground_only_names, playground_by_device
 
 urlpatterns = [
+    path("Account/Login/", account_document_push_views.login, name="account-login"),
+    path("Account/Logout/", account_document_push_views.logout, name="account-logout"),
+    path("Account/Me/", account_document_push_views.account_me, name="account-me"),
+    path("Account/Users/Assignable/", account_document_push_views.assignable_users, name="account-assignable-users"),
+    path("Account/Users/", account_document_push_views.users, name="account-users"),
+    path("Document/", account_document_push_views.document_create, name="document-create"),
+    path("Document/<int:fid>/", account_document_push_views.document_item, name="document-item"),
+    path("Document/<int:fid>/Name/", account_document_push_views.document_rename, name="document-rename"),
+    path("PushSubscription/Register/", account_document_push_views.push_register, name="push-register"),
+    path("PushSubscription/Unregister/", account_document_push_views.push_unregister, name="push-unregister"),
+    path("PushSubscription/Me/", account_document_push_views.push_me, name="push-me"),
     path("Inspection/", inspection_device_views.create_inspection, name="inspection-create"),
     path("Playdevice/", inspection_device_views.playdevice, name="playdevice-write"),
     path("Playdevice/<int:fid>/Picture/", inspection_device_views.playdevice_picture, name="playdevice-picture"),
