@@ -26,7 +26,8 @@ docker compose -p spielplatzkontrolle --project-directory "$DEPLOY_DIR" \
   --env-file "$ENV_FILE" -f "$COMPOSE_FILE" config --quiet
 
 if docker compose -p spielplatzkontrolle --project-directory "$DEPLOY_DIR" \
-    --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build --wait --wait-timeout 180; then
+    --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build --wait --wait-timeout 180 \
+    && docker exec -i "$SERVICE" sh -s < .gitlab/scripts/smoke-test.sh; then
   printf 'Deployment successful: %s\n' "$NEW_IMAGE"
   exit 0
 fi
