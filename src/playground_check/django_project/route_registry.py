@@ -1,0 +1,42 @@
+"""Central method-aware mapping from legacy URLs to canonical Django routes.
+
+Only explicitly migrated method/path pairs go to Django. Every other request
+keeps the original WSGI handler (including 400/401/404/405 and SPA fallbacks).
+"""
+from __future__ import annotations
+
+import re
+
+# Path patterns are case-insensitive and allow legacy trailing slash variants.
+# Canonical paths are passed to Django without altering the query string/body.
+ROUTES = (
+    (r"/__django/health", "GET", "/__django/health"),
+    (r"/api/health", "GET", "/api/health"),
+    (r"/Inspection/types", "GET", "/Inspection/types/"),
+    (r"/Inspection/renovationtypes", "GET", "/Inspection/renovationtypes/"),
+    (r"/Inspection", "POST", "/Inspection/"),
+    (r"/Playground/byname", "GET", "/Playground/byname/"),
+    (r"/Playground/onlynames", "GET", "/Playground/onlynames/"),
+    (r"/Playground/byplaydevice/(?P<fid>\d+)", "GET", "/Playground/byplaydevice/{fid}/"),
+    (r"/Collections/Playgrounds/Items", "GET", "/Collections/Playgrounds/Items/"),
+    (r"/Collections/Playgrounds/Items/(?P<uuid>[^/]+)", "GET", "/Collections/Playgrounds/Items/{uuid}/"),
+    (r"/Defect", "GET POST PUT", "/Defect/"),
+    (r"/Defect/Overview", "GET", "/Defect/Overview/"),
+    (r"/Defect/Picture/(?P<tid>\d+)", "GET PUT", "/Defect/Picture/{tid}/"),
+    (r"/Defect/(?P<tid>\d+)/send-mail", "POST", "/Defect/{tid}/send-mail/"),
+    (r"/Defect/(?P<tid>\d+)/accept", "POST", "/Defect/{tid}/accept/"),
+    (r"/Defect/(?P<tid>\d+)/reject", "POST", "/Defect/{tid}/reject/"),
+    (r"/Playdevice", "POST PUT", "/Playdevice/"),
+    (r"/Playdevice/(?P<fid>\d+)/Picture", "GET PUT", "/Playdevice/{fid}/Picture/"),
+)
+_COMPILED = tuple((re.compile(pattern + r"/?", re.IGNORECASE), frozenset(methods.split()), target)
+                  for pattern, methods, target in ROUTES)
+
+
+def migrated_path(path: str, method: str) -> str | None:
+    for pattern, allowed, target in _COMPILED:
+        if method in allowed:
+            match = pattern.fullmatch(path)
+            if match:
+                return target.format(**match.groupdict())
+    return None

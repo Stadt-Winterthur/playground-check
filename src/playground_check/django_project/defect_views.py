@@ -5,29 +5,12 @@ PostgreSQL, authorization, SMTP and transfer-ID contracts are not duplicated.
 """
 from __future__ import annotations
 
-from io import BytesIO
-
-from django.http import HttpResponse
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 
 from playground_check import service
-from playground_check.http import Request as LegacyRequest
 
 
-def _dispatch(request, handler, **params):
-    # The original request parser deliberately supports case-insensitive JSON
-    # properties and the precise legacy error contract. Preserve its input.
-    django_request = getattr(request, "_request", request)
-    environ = dict(django_request.META)
-    payload = django_request.body
-    environ["wsgi.input"] = BytesIO(payload)
-    environ["CONTENT_LENGTH"] = str(len(payload))
-    legacy_request = LegacyRequest(environ, {key: str(value) for key, value in params.items()})
-    result = handler(legacy_request)
-    response = HttpResponse(result.body, status=result.status, content_type=result.content_type)
-    for name, value in result.headers:
-        response[name] = value
-    return response
+from .legacy_adapter import dispatch as _dispatch
 
 
 @api_view(["GET", "POST", "PUT"])
