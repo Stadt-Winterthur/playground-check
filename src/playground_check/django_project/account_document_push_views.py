@@ -9,6 +9,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 
 from playground_check import service
 from .legacy_adapter import dispatch
+from . import account_queries
 
 
 @api_view(["POST"])
@@ -22,27 +23,29 @@ def login(request):
 @authentication_classes([])
 @permission_classes([])
 def logout(request):
-    return dispatch(request, service.logout)
+    return account_queries.logout()
 
 
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([])
 def account_me(request):
-    return dispatch(request, service.get_current_account)
+    return account_queries.current_account(request)
 
 
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([])
 def assignable_users(request):
-    return dispatch(request, service.get_assignable_users)
+    return account_queries.assignable_users(request)
 
 
 @api_view(["GET", "PUT", "DELETE"])
 @authentication_classes([])
 @permission_classes([])
 def users(request):
+    if request.method == "GET":
+        return account_queries.list_users(request)
     handlers = {
         "GET": service.get_users,
         "PUT": service.update_user,
