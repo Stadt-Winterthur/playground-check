@@ -36,3 +36,24 @@ class PythonUITest(unittest.TestCase):
             result = self.ui.playgrounds(self.rf.get('/__ui/playgrounds/'))
         self.assertEqual(result.status_code,503)
         self.assertNotIn(b'secret',result.content)
+
+    def test_reverse_proxy_links_and_css(self):
+        request = self.rf.get('/__ui/', **{'SCRIPT_NAME': '/stadtgruen/spielplatzkontrolle'})
+        response = self.ui.home(request)
+        html = response.content.decode('utf-8')
+        prefix = '/stadtgruen/spielplatzkontrolle'
+        self.assertIn(f'href="{prefix}/static/css/python-ui.css"', html)
+        self.assertIn(f'href="{prefix}/__ui/"', html)
+        self.assertIn(f'href="{prefix}/__ui/playgrounds/"', html)
+
+    def test_reverse_proxy_search_form(self):
+        class DB:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def execute(self, *_): return self
+            def fetchall(self): return []
+        request = self.rf.get('/__ui/playgrounds/', **{'SCRIPT_NAME': '/stadtgruen/spielplatzkontrolle'})
+        with patch.object(self.ui, 'connect', return_value=DB()):
+            response = self.ui.playgrounds(request)
+        html = response.content.decode('utf-8')
+        self.assertIn('action="/stadtgruen/spielplatzkontrolle/__ui/playgrounds/"', html)
