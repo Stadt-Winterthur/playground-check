@@ -94,12 +94,14 @@ class Step33DispatchTests(unittest.TestCase):
 
     def test_document_binary_response_keeps_fid_and_content_type(self):
         from playground_check import service
-        from playground_check.http import Response
-        def handler(req):
-            self.assertEqual(req.params["fid"], "77")
-            self.assertEqual(req.query["type"], "certificate")
-            return Response.file(b"%PDF-1.5\n\x00payload", "application/pdf")
-        with patch.object(service, "get_document", side_effect=handler):
+        from playground_check.django_project import document_commands
+        from django.http import HttpResponse
+        def handler(req, fid):
+            self.assertEqual(fid, 77)
+            self.assertEqual(req.query_params["type"], "certificate")
+            return HttpResponse(b"%PDF-1.5\n\x00payload", content_type="application/pdf")
+        with patch.object(service, "get_document", side_effect=AssertionError("legacy invoked")), \
+                patch.object(document_commands, "get_document", side_effect=handler):
             status, headers, body = self.request("GET", "/document/77", query="type=certificate")
         self.assertEqual(status, 200)
         self.assertTrue(headers["Content-Type"].startswith("application/pdf"))

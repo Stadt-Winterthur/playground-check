@@ -7,9 +7,7 @@ from __future__ import annotations
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 
-from playground_check import service
-from .legacy_adapter import dispatch
-from . import account_queries, account_commands
+from . import account_queries, account_commands, document_commands, push_commands
 
 
 @api_view(["POST"])
@@ -55,40 +53,41 @@ def users(request):
 @authentication_classes([])
 @permission_classes([])
 def document_create(request):
-    return dispatch(request, service.post_document)
+    return document_commands.create_document(request)
 
 
 @api_view(["GET", "DELETE"])
 @authentication_classes([])
 @permission_classes([])
 def document_item(request, fid: int):
-    handler = service.get_document if request.method == "GET" else service.delete_document
-    return dispatch(request, handler, fid=fid)
+    if request.method == "GET":
+        return document_commands.get_document(request, fid)
+    return document_commands.delete_document(request, fid)
 
 
 @api_view(["PUT"])
 @authentication_classes([])
 @permission_classes([])
 def document_rename(request, fid: int):
-    return dispatch(request, service.rename_document, fid=fid)
+    return document_commands.rename_document(request, fid)
 
 
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def push_register(request):
-    return dispatch(request, service.push_register)
+    return push_commands.register(request)
 
 
 @api_view(["DELETE"])
 @authentication_classes([])
 @permission_classes([])
 def push_unregister(request):
-    return dispatch(request, service.push_unregister)
+    return push_commands.unregister(request)
 
 
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([])
 def push_me(request):
-    return dispatch(request, service.push_me)
+    return push_commands.subscriptions(request)
