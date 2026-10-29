@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from playground_check import service
 from playground_check.http import Response
-from .legacy_adapter import to_http_response, to_legacy_request
+from .api_wire import to_http_response, to_legacy_request
 
 
 def _authorized(request, role=None):

@@ -58,7 +58,7 @@ class DRFDefectMigrationTests(unittest.TestCase):
     def test_native_parser_receives_case_insensitive_json(self):
         from django.test import RequestFactory
         from django.http import HttpResponse
-        from playground_check.django_project.legacy_adapter import to_legacy_request
+        from playground_check.django_project.api_wire import to_legacy_request
         body = '{"DefectDescription":"Test"}'
         def handler(request):
             self.assertEqual(to_legacy_request(request).json().get('defectDescription'), 'Test')

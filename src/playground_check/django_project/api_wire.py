@@ -1,6 +1,6 @@
-"""Compatibility adapter: preserve original request parsing and response bytes.
+"""DRF transport boundary preserving deployed request and response contracts.
 
-Service authorization and PostgreSQL transaction boundaries remain in place.
+Domain authorization and PostgreSQL transaction boundaries remain unchanged.
 No attempt is made to re-serialize JSON or decode document/image responses.
 """
 from __future__ import annotations

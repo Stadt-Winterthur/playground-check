@@ -81,7 +81,7 @@ class Step33DispatchTests(unittest.TestCase):
     def test_post_login_preserves_json_body_and_status(self):
         from playground_check import service
         from playground_check.django_project import account_commands
-        from playground_check.django_project.legacy_adapter import to_legacy_request
+        from playground_check.django_project.api_wire import to_legacy_request
         from django.http import HttpResponse
         def handler(req):
             self.assertEqual(to_legacy_request(req).json(), {"mailAddress": "test@example.org"})

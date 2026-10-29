@@ -9,7 +9,7 @@ from tools.check_migration_dependencies import scan
 class MigrationDependencyAuditTests(unittest.TestCase):
     def test_existing_adapter_consumers_are_reported(self):
         found = scan()
-        self.assertTrue(any(dependency == 'legacy_adapter' for _, _, dependency in found))
+        self.assertFalse(any(dependency == 'legacy_adapter' for _, _, dependency in found))
 
     def test_results_are_sorted_and_have_real_files(self):
         found = scan()

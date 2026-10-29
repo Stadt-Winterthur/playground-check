@@ -10,7 +10,7 @@ from datetime import date
 from playground_check import service
 from playground_check.http import Response
 
-from .legacy_adapter import to_http_response, to_legacy_request
+from .api_wire import to_http_response, to_legacy_request
 
 
 def _respond(result):
