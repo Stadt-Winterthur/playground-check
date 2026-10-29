@@ -1,6 +1,7 @@
 """Explicit Django API routes; unmigrated requests retain legacy WSGI."""
 
-from django.urls import path
+from django.urls import path, re_path
+from .frontend import frontend
 
 from . import account_document_push_views, defect_views, inspection_device_views
 
@@ -39,4 +40,5 @@ urlpatterns = [
     path("Playground/byplaydevice/<int:fid>/", playground_by_device, name="playground-by-device"),
     path("Playground/<int:fid>/", playground_by_id, name="playground-by-id"),
     path("Playground/<str:invalid_id>/", playground_invalid_id, name="playground-invalid-id"),
+    re_path(r"^(?P<path>.*)$", frontend, name="frontend-fallback"),
 ]

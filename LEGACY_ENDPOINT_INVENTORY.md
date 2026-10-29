@@ -62,3 +62,17 @@ covers every operation. This is intentionally a **coverage** check, not a
 claim that all endpoint business logic is independent of the compatibility
 adapter. SPA, static assets, Swagger and method/error fallbacks are outside
 the API router and remain delegated to the proven legacy WSGI application.
+
+## Final browser-route extraction
+
+Django now owns SPA index/deep links, `/static/*`, Swagger UI and the OpenAPI
+JSON through `django_project.frontend`; these routes no longer traverse the
+legacy WSGI application. The behavior of existing API operations remains
+protected by the method-aware registry. Unsupported API methods and error
+fallbacks still use `server.Application` intentionally.
+
+**Not a full legacy removal:** `legacy_adapter` is still used for request and
+response compatibility, and the DRF read/auth views still depend on some
+`service.py` helper functions. Deleting these modules would break existing
+contracts without a replacement and end-to-end tests. Do not declare the
+migration legacy-free or remove the fallback yet.
