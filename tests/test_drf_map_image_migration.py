@@ -70,7 +70,7 @@ class MapImageMigrationTests(unittest.TestCase):
 
     def test_other_methods_still_legacy(self):
         from playground_check.django_project import wsgi
-        with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy:
+        with patch.object(wsgi, "_django_application", return_value=[b"django"]) as app:
             result = list(wsgi.application({"REQUEST_METHOD": "POST", "PATH_INFO": "/Playground/mapimage"}, lambda *_: None))
-        self.assertEqual(result, [b"legacy"])
-        legacy.assert_called_once()
+        self.assertEqual(result, [b"django"])
+        self.assertEqual(app.call_args.args[0]["PATH_INFO"], "/Playground/mapimage/")

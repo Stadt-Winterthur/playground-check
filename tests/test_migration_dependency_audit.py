@@ -11,10 +11,10 @@ class MigrationDependencyAuditTests(unittest.TestCase):
         found = scan()
         self.assertFalse(any(dependency == 'legacy_adapter' for _, _, dependency in found))
 
-    def test_remaining_service_imports_are_visible_until_migrated(self):
+    def test_no_legacy_server_or_service_imports_remain(self):
         remaining = {(filename, dependency) for filename, _, dependency in scan()}
         self.assertNotIn(("views.py", "playground_check.service"), remaining)
-        self.assertIn(("wsgi.py", "playground_check.server"), remaining)
+        self.assertNotIn(("wsgi.py", "playground_check.server"), remaining)
 
     def test_drf_views_do_not_import_legacy_service(self):
         found = scan()

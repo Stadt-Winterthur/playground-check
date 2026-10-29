@@ -66,7 +66,7 @@ class ReadTypesMigrationTest(unittest.TestCase):
 
     def test_non_get_method_remains_on_legacy(self):
         from playground_check.django_project import wsgi
-        with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy:
+        with patch.object(wsgi, "_django_application", return_value=[b"django"]) as app:
             env = {"REQUEST_METHOD": "POST", "PATH_INFO": "/Inspection/types/"}
-            self.assertEqual(wsgi.application(env, lambda *_: None), [b"legacy"])
-            legacy.assert_called_once()
+            self.assertEqual(wsgi.application(env, lambda *_: None), [b"django"])
+            app.assert_called_once()

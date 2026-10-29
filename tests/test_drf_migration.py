@@ -82,9 +82,9 @@ class DRFMigrationTest(unittest.TestCase):
 
     def test_post_collection_is_not_handled_by_drf(self):
         from playground_check.django_project import wsgi
-        with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy:
+        with patch.object(wsgi, "_django_application", return_value=[b"django"]) as app:
             self.call_raw_post()
-            legacy.assert_called_once()
+            app.assert_called_once()
 
     def call_raw_post(self):
         from playground_check.django_project import wsgi

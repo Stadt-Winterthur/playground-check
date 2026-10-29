@@ -24,8 +24,7 @@ class DjangoFrontendCutover(unittest.TestCase):
         def start_response(status, headers, *args):
             captured["status"] = int(status.split()[0])
             captured["headers"] = dict(headers)
-        with patch.object(wsgi, "legacy_application", side_effect=AssertionError("legacy called")):
-            body = b"".join(wsgi.application(env, start_response))
+        body = b"".join(wsgi.application(env, start_response))
         return captured["status"], captured["headers"], body
 
     def test_spa_deep_link(self):

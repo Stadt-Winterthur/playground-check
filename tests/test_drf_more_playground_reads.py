@@ -74,11 +74,11 @@ class MorePlaygroundReadsTest(unittest.TestCase):
 
     def test_invalid_device_id_and_post_still_use_legacy(self):
         from playground_check.django_project import wsgi
-        with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy:
+        with patch.object(wsgi, "_django_application", return_value=[b"django"]) as app:
             for method, path in (("GET", "/Playground/byplaydevice/invalid/"), ("POST", "/Playground/byplaydevice/123/")):
                 env = {"REQUEST_METHOD": method, "PATH_INFO": path}
-                self.assertEqual(list(wsgi.application(env, lambda *_: None)), [b"legacy"])
-        self.assertEqual(legacy.call_count, 2)
+                self.assertEqual(list(wsgi.application(env, lambda *_: None)), [b"django"])
+        self.assertEqual(app.call_count, 2)
 
     def test_numeric_playground_id_uses_native_read(self):
         from playground_check.django_project import views
@@ -101,17 +101,18 @@ class MorePlaygroundReadsTest(unittest.TestCase):
         from playground_check.django_project.route_registry import migrated_path
         malformed = "/Playground/123&inspectiontype=x"
         self.assertEqual(migrated_path(malformed, "GET"), "/Playground/123&inspectiontype=x/")
-        with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy, \
+        with patch.object(wsgi, "_django_application", wraps=wsgi._django_application) as app, \
              patch.object(views, "require_user", return_value=({"fid": 1}, None)):
             status, payload = self.call(malformed)
             self.assertEqual(status, 400)
             self.assertEqual(payload["status"], 400)
             self.assertIn("123&inspectiontype=x", payload["errors"]["id"][0])
-            self.assertEqual(list(wsgi.application(
-                {"REQUEST_METHOD": "POST", "PATH_INFO": "/Playground/123/"},
-                lambda *_: None,
-            )), [b"legacy"])
-        legacy.assert_called_once()
+            with patch.object(wsgi, "_django_application", return_value=[b"django"]) as dispatch:
+                self.assertEqual(list(wsgi.application(
+                    {"REQUEST_METHOD": "POST", "PATH_INFO": "/Playground/123/"},
+                    lambda *_: None,
+                )), [b"django"])
+                self.assertEqual(dispatch.call_args.args[0]["PATH_INFO"], "/Playground/123/")
 
 @unittest.skipUnless(django is not None, "Django REST Framework not installed")
 class PlaygroundIdPayloadTest(unittest.TestCase):

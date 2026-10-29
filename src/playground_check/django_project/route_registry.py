@@ -54,3 +54,12 @@ def migrated_path(path: str, method: str) -> str | None:
             if match:
                 return target.format(**match.groupdict())
     return None
+
+
+def canonical_path(path: str) -> str | None:
+    """Canonicalize known API URLs regardless of method (Django owns 405)."""
+    for pattern, _allowed, target in _COMPILED:
+        match = pattern.fullmatch(path)
+        if match:
+            return target.format(**match.groupdict())
+    return None

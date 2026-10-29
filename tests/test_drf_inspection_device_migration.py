@@ -76,9 +76,8 @@ class DRFInspectionDeviceMigrationTests(unittest.TestCase):
         ]
         for method, path, migrated in cases:
             with self.subTest(method=method, path=path):
-                with patch.object(wsgi, "_django_application", return_value=[b"django"]) as django_app, patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy_app:
+                with patch.object(wsgi, "_django_application", return_value=[b"django"]) as django_app:
                     environ = {"REQUEST_METHOD": method, "PATH_INFO": path, "wsgi.input": BytesIO(b"")}
                     result = wsgi.application(environ, lambda *a: None)
-                    self.assertEqual(result, [b"django"] if migrated else [b"legacy"])
-                    self.assertEqual(django_app.called, migrated)
-                    self.assertEqual(legacy_app.called, not migrated)
+                    self.assertEqual(result, [b"django"])
+                    django_app.assert_called_once()
