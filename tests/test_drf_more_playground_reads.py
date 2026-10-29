@@ -1,3 +1,4 @@
+from playground_check import service as legacy_service
 """Compatibility tests for the next incremental read-only DRF routes."""
 
 import io
@@ -122,7 +123,7 @@ class PlaygroundIdPayloadTest(unittest.TestCase):
         manager.__enter__.return_value = db
         with patch.object(service, "connect", return_value=manager), \
              patch.object(service.remaining_reads_repository, "playground_by_fid", return_value={"fid": 123}) as get_row, \
-             patch.object(service, "_playground_result", return_value={"id": 123}) as build:
+             patch.object(legacy_service, "_playground_result", return_value={"id": 123}) as build:
             self.assertEqual(service.playground_by_id_data(123, {"inspectiontype": "Hauptinspektion", "withdefects": "true", "withinspections": "false"}), {"id": 123})
         get_row.assert_called_once_with(db, 123)
         build.assert_called_once_with(db, {"fid": 123}, "Hauptinspektion", True, False)
@@ -134,6 +135,6 @@ class PlaygroundIdPayloadTest(unittest.TestCase):
         manager.__enter__.return_value = MagicMock()
         with patch.object(service, "connect", return_value=manager), \
              patch.object(service.remaining_reads_repository, "playground_by_fid", return_value=None), \
-             patch.object(service, "_playground_result") as build:
+             patch.object(legacy_service, "_playground_result") as build:
             self.assertIsNone(service.playground_by_id_data(999, {}))
         build.assert_not_called()

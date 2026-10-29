@@ -1,7 +1,7 @@
 """Push subscription operations using the existing identity and SQL repositories."""
 from __future__ import annotations
 
-from playground_check import service
+from playground_check import domain_support as service
 from playground_check.http import Response
 from .api_wire import to_http_response, to_legacy_request
 

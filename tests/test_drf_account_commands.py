@@ -1,3 +1,4 @@
+from playground_check import service as legacy_service
 """Step 35: native account commands preserve the established security contract."""
 import io
 import json
@@ -41,26 +42,26 @@ class AccountCommandsTests(unittest.TestCase):
         return result
 
     def test_invalid_login_uses_native_command_not_legacy_handler(self):
-        from playground_check import service
-        with patch.object(service, "login", side_effect=AssertionError("legacy HTTP handler called")):
+        from playground_check import domain_support as service
+        with patch.object(legacy_service, "login", side_effect=AssertionError("legacy HTTP handler called")):
             r = self.request("POST", "/Account/Login/", {"mailAddress": "not-an-email", "passPhrase": "pw"})
         self.assertEqual(r["status"], 400)
         self.assertEqual(r["body"], b"Keine oder falsche Login-Daten.")
 
     def test_administrative_changes_deny_without_database_writes(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         from playground_check.http import Response
         with patch.object(service, "require_user", return_value=(None, Response.text("unauthorized", 401))), \
              patch.object(service, "connect", side_effect=AssertionError("unexpected database access")), \
-             patch.object(service, "update_user", side_effect=AssertionError("legacy handler called")), \
-             patch.object(service, "delete_user", side_effect=AssertionError("legacy handler called")):
+             patch.object(legacy_service, "update_user", side_effect=AssertionError("legacy handler called")), \
+             patch.object(legacy_service, "delete_user", side_effect=AssertionError("legacy handler called")):
             for method, body in (("PUT", {"mailAddress": "x@example.org"}), ("DELETE", None)):
                 r = self.request(method, "/Account/Users/?email=x@example.org", body)
                 self.assertEqual(r["status"], 401)
                 self.assertEqual(r["body"], b"unauthorized")
 
     def test_last_active_admin_cannot_be_deactivated(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         @contextmanager
         def db():
             yield object()
@@ -75,7 +76,7 @@ class AccountCommandsTests(unittest.TestCase):
 
     def test_login_rate_limit_keeps_retry_after(self):
         from datetime import datetime, timedelta
-        from playground_check import service
+        from playground_check import domain_support as service
         @contextmanager
         def db():
             yield object()
@@ -89,7 +90,7 @@ class AccountCommandsTests(unittest.TestCase):
         self.assertEqual(r["headers"]["Retry-After"], "2")
 
     def test_update_user_keeps_legacy_validation_and_no_write(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         with patch.object(service, "require_user", return_value=({"role": "administrator"}, None)), \
              patch.object(service, "connect", side_effect=AssertionError("invalid payload reached database")):
             r = self.request("PUT", "/Account/Users/", {"mailAddress": "bad", "role": "administrator"})

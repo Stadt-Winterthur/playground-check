@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from playground_check.http import Response as LegacyResponse
+from playground_check import service as legacy_service
 
 # Importing DRF views requires configured Django settings. The WSGI module
 # initializes Django exactly as the existing DRF integration tests do.
@@ -76,7 +77,7 @@ class DRFDefectMigrationTests(unittest.TestCase):
         with patch.object(native.service, "require_user", return_value=(identity, None)), \
              patch.object(native.service, "connect", return_value=connection), \
              patch.object(native.service.inspection_defect_repository, "defect_by_tid", return_value=None) as lookup, \
-             patch.object(native.service, "get_defect", side_effect=AssertionError("legacy read")):
+             patch.object(legacy_service, "get_defect", side_effect=AssertionError("legacy read")):
             response = defect_views.defect(RequestFactory().get("/Defect/?tid=77"))
         self.assertEqual((response.status_code, response.content), (200, b"null"))
         lookup.assert_called_once_with("db", 77)
@@ -84,7 +85,7 @@ class DRFDefectMigrationTests(unittest.TestCase):
         with patch.object(native.service, "require_user", return_value=(identity, None)), \
              patch.object(native.service, "connect", return_value=connection), \
              patch.object(native.service.assignment_repository, "update_assignment_status", return_value=1) as update, \
-             patch.object(native.service, "assignment_status", side_effect=AssertionError("legacy assignment")):
+             patch.object(legacy_service, "assignment_status", side_effect=AssertionError("legacy assignment")):
             response = defect_views.defect_accept(RequestFactory().post(
                 "/Defect/99/accept/", data='{"AssignmentComment":" OK "}', content_type="application/json"), tid=99)
         self.assertEqual((response.status_code, response.content), (200, b'{"errorMessage":""}'))

@@ -22,7 +22,9 @@ def scan():
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 module = node.module or ''
-                if module == 'legacy_adapter' and node.level == 1:
+                if module == 'playground_check' and any(alias.name == 'service' for alias in node.names):
+                    findings.append((file.name, node.lineno, 'playground_check.service'))
+                elif module == 'legacy_adapter' and node.level == 1:
                     findings.append((file.name, node.lineno, 'legacy_adapter'))
                 elif module in ('playground_check.service', 'playground_check.server'):
                     findings.append((file.name, node.lineno, module))

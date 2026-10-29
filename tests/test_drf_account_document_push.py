@@ -1,3 +1,4 @@
+from playground_check import service as legacy_service
 """Step 33: method-aware routing, and byte-exact service dispatch."""
 import io
 import os
@@ -79,28 +80,28 @@ class Step33DispatchTests(unittest.TestCase):
         return captured["status"], captured["headers"], payload
 
     def test_post_login_preserves_json_body_and_status(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         from playground_check.django_project import account_commands
         from playground_check.django_project.api_wire import to_legacy_request
         from django.http import HttpResponse
         def handler(req):
             self.assertEqual(to_legacy_request(req).json(), {"mailAddress": "test@example.org"})
             return HttpResponse(b'{"errorMessage":"invalid credentials"}', status=401, content_type="application/json")
-        with patch.object(service, "login", side_effect=AssertionError("legacy login invoked")), \
+        with patch.object(legacy_service, "login", side_effect=AssertionError("legacy login invoked")), \
                 patch.object(account_commands, "login", side_effect=handler):
             status, headers, body = self.request("POST", "/account/login", b'{"mailAddress":"test@example.org"}')
         self.assertEqual(status, 401)
         self.assertEqual(body, b'{"errorMessage":"invalid credentials"}')
 
     def test_document_binary_response_keeps_fid_and_content_type(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         from playground_check.django_project import document_commands
         from django.http import HttpResponse
         def handler(req, fid):
             self.assertEqual(fid, 77)
             self.assertEqual(req.query_params["type"], "certificate")
             return HttpResponse(b"%PDF-1.5\n\x00payload", content_type="application/pdf")
-        with patch.object(service, "get_document", side_effect=AssertionError("legacy invoked")), \
+        with patch.object(legacy_service, "get_document", side_effect=AssertionError("legacy invoked")), \
                 patch.object(document_commands, "get_document", side_effect=handler):
             status, headers, body = self.request("GET", "/document/77", query="type=certificate")
         self.assertEqual(status, 200)
@@ -108,11 +109,11 @@ class Step33DispatchTests(unittest.TestCase):
         self.assertEqual(body, b"%PDF-1.5\n\x00payload")
 
     def test_logout_preserves_empty_body_and_cookie(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         from playground_check.http import Response
         response = Response(b"", 204)
         response.headers.append(("Set-Cookie", "auth=; Max-Age=0; Path=/"))
-        with patch.object(service, "logout", return_value=response):
+        with patch.object(legacy_service, "logout", return_value=response):
             status, headers, body = self.request("POST", "/account/logout")
         self.assertEqual(status, 204)
         self.assertEqual(body, b"")

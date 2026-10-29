@@ -1,3 +1,4 @@
+from playground_check import service as legacy_service
 """Step 36: native document and push endpoints preserve API contracts."""
 import base64
 import json
@@ -16,7 +17,7 @@ except ImportError:
 class NativeDocumentsPushTests(unittest.TestCase):
     def setUp(self):
         from django.test import RequestFactory
-        from playground_check import service
+        from playground_check import domain_support as service
         from playground_check.django_project import account_document_push_views as views
         self.rf = RequestFactory()
         self.views = views
@@ -30,8 +31,8 @@ class NativeDocumentsPushTests(unittest.TestCase):
         self.addCleanup(self.connector.stop)
 
     def test_pdf_download_keeps_bytes_and_avoids_legacy_handler(self):
-        from playground_check import service
-        with patch.object(service, "get_document", side_effect=AssertionError("legacy invoked")), \
+        from playground_check import domain_support as service
+        with patch.object(legacy_service, "get_document", side_effect=AssertionError("legacy invoked")), \
              patch.object(service.remaining_reads_repository, "document_blob", return_value={"content": b"%PDF-1.4\\n%%EOF"}):
             response = self.views.document_item(self.rf.get("/Document/9/?type=abnahme"), fid=9)
         self.assertEqual(response.status_code, 200)
@@ -39,10 +40,10 @@ class NativeDocumentsPushTests(unittest.TestCase):
         self.assertEqual(response["Content-Type"], "application/pdf")
 
     def test_upload_allocates_document_fid_through_existing_repository(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         payload = {"type": "abnahme", "name": "Abnahme.pdf", "playgroundId": 55,
                    "contentBase64": base64.b64encode(b"%PDF-1.4\n%%EOF").decode()}
-        with patch.object(service, "post_document", side_effect=AssertionError("legacy invoked")), \
+        with patch.object(legacy_service, "post_document", side_effect=AssertionError("legacy invoked")), \
              patch.object(service.document_write_repository, "insert_document", return_value=801) as insert:
             response = self.views.document_create(self.rf.post("/Document/", json.dumps(payload), content_type="application/json"))
         self.assertEqual(response.status_code, 200)
@@ -50,7 +51,7 @@ class NativeDocumentsPushTests(unittest.TestCase):
         self.assertEqual(insert.call_args.args[0], "db")
 
     def test_invalid_upload_and_unauthorized_edit_never_write(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         from playground_check.http import Response
         with patch.object(service.document_write_repository, "insert_document", side_effect=AssertionError("must not write")):
             response = self.views.document_create(self.rf.post("/Document/", json.dumps({"type": "abnahme", "name": "x", "playgroundId": 1, "contentBase64": "AAAA"}), content_type="application/json"))
@@ -62,7 +63,7 @@ class NativeDocumentsPushTests(unittest.TestCase):
         self.assertEqual(response.content, b"denied")
 
     def test_rename_and_delete_use_given_document_fid(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         with patch.object(service.document_write_repository, "document_content", return_value={"content": b"%PDF-1.4"}), \
              patch.object(service.document_write_repository, "rename_document") as rename:
             response = self.views.document_rename(self.rf.put("/Document/9/Name/?type=abnahme", json.dumps({"name": "Neu.pdf"}), content_type="application/json"), fid=9)
@@ -74,9 +75,9 @@ class NativeDocumentsPushTests(unittest.TestCase):
         self.assertEqual(delete.call_args.args[2], 9)
 
     def test_push_operations_preserve_user_fid_and_contract(self):
-        from playground_check import service
+        from playground_check import domain_support as service
         subscription = {"endpoint": "https://example.org/push", "p256dh": "key", "auth": "secret"}
-        with patch.object(service, "push_register", side_effect=AssertionError("legacy invoked")), \
+        with patch.object(legacy_service, "push_register", side_effect=AssertionError("legacy invoked")), \
              patch.object(service.push_repository, "register_subscription") as register:
             response = self.views.push_register(self.rf.post("/PushSubscription/Register/", json.dumps(subscription), content_type="application/json"))
         self.assertEqual(response.status_code, 200)

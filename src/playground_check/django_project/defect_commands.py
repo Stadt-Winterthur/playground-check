@@ -9,7 +9,7 @@ import logging
 import smtplib
 from datetime import date, datetime
 
-from playground_check import service
+from playground_check import domain_support as service
 from playground_check.http import Response
 from playground_check.mail_service import MailAttachment, MailConfigurationError, compose_defect_mail, deliver
 
