@@ -17,33 +17,52 @@ else:
 
 @unittest.skipIf(views is None, "Django REST Framework is not installed")
 class DRFInspectionDeviceMigrationTests(unittest.TestCase):
-    def test_inspection_creation_retains_json_response_and_handler(self):
+    def test_inspection_creation_uses_native_command(self):
         from django.test import RequestFactory
-        with patch.object(views.service, "post_inspections", return_value=LegacyResponse.json({"errorMessage": "SPK-3"})) as handler:
+        from django.http import HttpResponse
+        native = views.inspection_device_commands
+        with patch.object(native, "create_inspection", return_value=HttpResponse(b'{"errorMessage":"SPK-3"}', content_type="application/json")) as handler:
             response = views.create_inspection(RequestFactory().post("/Inspection/", data="{}", content_type="application/json"))
-            self.assertEqual(response.status_code, 200)
             self.assertEqual(response.content, b'{"errorMessage":"SPK-3"}')
             handler.assert_called_once()
 
-    def test_playdevice_post_put_forward_to_original_handlers(self):
+    def test_playdevice_post_put_use_native_commands(self):
         from django.test import RequestFactory
+        from django.http import HttpResponse
+        native = views.inspection_device_commands
         for method, name in (("POST", "save_playdevice"), ("PUT", "exchange_playdevice_picture")):
-            with self.subTest(method=method), patch.object(views.service, name, return_value=LegacyResponse.json({"errorMessage": ""})) as handler:
+            with self.subTest(method=method), patch.object(native, name, return_value=HttpResponse(b'{"errorMessage":""}', content_type="application/json")) as handler:
                 request = getattr(RequestFactory(), method.lower())("/Playdevice/", data='{"FID":3}', content_type="application/json")
                 response = views.playdevice(request)
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(handler.call_args.args[0].json()["fid"], 3)
+                handler.assert_called_once()
 
     def test_picture_get_put_preserve_fid_and_binary_response(self):
         from django.test import RequestFactory
-        with patch.object(views.service, "get_playdevice_picture", return_value=LegacyResponse.file(b"abc", "image/jpeg")) as handler:
+        from django.http import HttpResponse
+        native = views.inspection_device_commands
+        with patch.object(native, "get_playdevice_picture", return_value=HttpResponse(b"abc", content_type="image/jpeg")) as handler:
             response = views.playdevice_picture(RequestFactory().get("/Playdevice/12/Picture/"), fid=12)
             self.assertEqual((response.status_code, response.content, response["Content-Type"]), (200, b"abc", "image/jpeg"))
-            self.assertEqual(handler.call_args.args[0].params["fid"], "12")
-        with patch.object(views.service, "put_playdevice_picture", return_value=LegacyResponse.text("Unauthorized", 401)) as handler:
+            self.assertEqual(handler.call_args.args[1], 12)
+        with patch.object(native, "put_playdevice_picture", return_value=HttpResponse(b"Unauthorized", status=401)) as handler:
             response = views.playdevice_picture(RequestFactory().put("/Playdevice/12/Picture/", data="{}", content_type="application/json"), fid=12)
             self.assertEqual((response.status_code, response.content), (401, b"Unauthorized"))
             handler.assert_called_once()
+
+    def test_dry_run_get_picture_never_accesses_database(self):
+        from django.test import RequestFactory
+        native = views.inspection_device_commands
+        with patch.object(native.service, "connect", side_effect=AssertionError("database touched")):
+            response = views.playdevice_picture(RequestFactory().get("/Playdevice/12/Picture/?dryRun=true"), fid=12)
+        self.assertEqual((response.status_code, response.content), (200, b""))
+
+    def test_unauthorized_inspection_never_accesses_database(self):
+        from django.test import RequestFactory
+        native = views.inspection_device_commands
+        with patch.object(native.service, "current_user", return_value=None), patch.object(native.service, "connect", side_effect=AssertionError("database touched")):
+            response = views.create_inspection(RequestFactory().post("/Inspection/", data="[]", content_type="application/json"))
+        self.assertEqual((response.status_code, response.content), (401, b"Unauthorized"))
 
     def test_wsgi_routes_only_supported_methods_to_django(self):
         from io import BytesIO

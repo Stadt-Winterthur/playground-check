@@ -1,33 +1,31 @@
-"""DRF routing for inspection creation and playdevice/picture operations.
-
-The legacy service remains responsible for authorization, validation, SQL
-transactions and binary/JSON response contracts during this migration.
-"""
+"""DRF routes for native inspection and playdevice commands."""
 from __future__ import annotations
 
-from .legacy_adapter import dispatch as _dispatch
-from playground_check import service
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
+
+from . import inspection_device_commands
 
 
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def create_inspection(request):
-    return _dispatch(request, service.post_inspections)
+    return inspection_device_commands.create_inspection(request)
 
 
 @api_view(["POST", "PUT"])
 @authentication_classes([])
 @permission_classes([])
 def playdevice(request):
-    handler = service.save_playdevice if request.method == "POST" else service.exchange_playdevice_picture
-    return _dispatch(request, handler)
+    if request.method == "POST":
+        return inspection_device_commands.save_playdevice(request)
+    return inspection_device_commands.exchange_playdevice_picture(request)
 
 
 @api_view(["GET", "PUT"])
 @authentication_classes([])
 @permission_classes([])
 def playdevice_picture(request, fid: int):
-    handler = service.get_playdevice_picture if request.method == "GET" else service.put_playdevice_picture
-    return _dispatch(request, handler, fid=fid)
+    if request.method == "GET":
+        return inspection_device_commands.get_playdevice_picture(request, fid)
+    return inspection_device_commands.put_playdevice_picture(request, fid)
