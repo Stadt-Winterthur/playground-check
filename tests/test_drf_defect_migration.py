@@ -21,7 +21,7 @@ else:
 @unittest.skipIf(defect_views is None, "Django REST Framework is not installed")
 class DRFDefectMigrationTests(unittest.TestCase):
     def test_all_methods_reach_the_existing_business_handlers(self):
-        for method, function in (("GET", "get_defect"), ("POST", "update_defect"), ("PUT", "create_defect")):
+        for method, function in (("POST", "update_defect"), ("PUT", "create_defect")):
             with self.subTest(method=method), patch.object(defect_views.service, function, return_value=LegacyResponse.json({"errorMessage": ""})) as handler:
                 from django.test import RequestFactory
                 factory = RequestFactory()
@@ -47,7 +47,8 @@ class DRFDefectMigrationTests(unittest.TestCase):
         with patch.object(defect_views.service, 'get_defect_picture', return_value=LegacyResponse.file(b'GIF89a', 'image/gif')):
             result = defect_views.defect_picture(RequestFactory().get('/Defect/Picture/17/'), tid=17)
             self.assertEqual((result.status_code, result.content, result['Content-Type']), (200, b'GIF89a', 'image/gif'))
-        with patch.object(defect_views.service, 'get_defect_overview', return_value=LegacyResponse.text('Unauthorized', 401)):
+        with patch.object(defect_views.defect_native.service, 'require_user',
+                          return_value=(None, LegacyResponse.text('Unauthorized', 401))):
             result = defect_views.defect_overview(RequestFactory().get('/Defect/Overview/'))
             self.assertEqual((result.status_code, result.content), (401, b'Unauthorized'))
 
@@ -57,3 +58,35 @@ class DRFDefectMigrationTests(unittest.TestCase):
         with patch.object(defect_views.service, 'create_defect', return_value=LegacyResponse.json({'tid': 9})) as handler:
             defect_views.defect(RequestFactory().put('/Defect/', data=body, content_type='application/json'))
             self.assertEqual(handler.call_args.args[0].json().get('defectDescription'), 'Test')
+
+    def test_native_defect_read_and_assignment_skip_legacy_handlers(self):
+        from django.test import RequestFactory
+        from unittest.mock import MagicMock
+        native = defect_views.defect_native
+        connection = MagicMock()
+        connection.__enter__.return_value = "db"
+        identity = {"fid": 12, "mailAddress": "worker@example.org"}
+        with patch.object(native.service, "require_user", return_value=(identity, None)), \
+             patch.object(native.service, "connect", return_value=connection), \
+             patch.object(native.service.inspection_defect_repository, "defect_by_tid", return_value=None) as lookup, \
+             patch.object(native.service, "get_defect", side_effect=AssertionError("legacy read")):
+            response = defect_views.defect(RequestFactory().get("/Defect/?tid=77"))
+        self.assertEqual((response.status_code, response.content), (200, b"null"))
+        lookup.assert_called_once_with("db", 77)
+
+        with patch.object(native.service, "require_user", return_value=(identity, None)), \
+             patch.object(native.service, "connect", return_value=connection), \
+             patch.object(native.service.assignment_repository, "update_assignment_status", return_value=1) as update, \
+             patch.object(native.service, "assignment_status", side_effect=AssertionError("legacy assignment")):
+            response = defect_views.defect_accept(RequestFactory().post(
+                "/Defect/99/accept/", data='{"AssignmentComment":" OK "}', content_type="application/json"), tid=99)
+        self.assertEqual((response.status_code, response.content), (200, b'{"errorMessage":""}'))
+        update.assert_called_once_with("db", 99, 12, "worker@example.org", "OK", True)
+
+    def test_native_defect_rejects_unauthorized_before_database(self):
+        from django.test import RequestFactory
+        native = defect_views.defect_native
+        with patch.object(native.service, "require_user", return_value=(None, LegacyResponse.text("Unauthorized", 401))), \
+             patch.object(native.service, "connect", side_effect=AssertionError("DB must not be accessed")):
+            response = defect_views.defect_reject(RequestFactory().post("/Defect/99/reject/"), tid=99)
+        self.assertEqual((response.status_code, response.content), (401, b"Unauthorized"))

@@ -11,13 +11,16 @@ from playground_check import service
 
 
 from .legacy_adapter import dispatch as _dispatch
+from . import defect_native
 
 
 @api_view(["GET", "POST", "PUT"])
 @authentication_classes([])
 @permission_classes([])
 def defect(request):
-    handlers = {"GET": service.get_defect, "POST": service.update_defect, "PUT": service.create_defect}
+    if request.method == "GET":
+        return defect_native.get_defect(request)
+    handlers = {"POST": service.update_defect, "PUT": service.create_defect}
     return _dispatch(request, handlers[request.method])
 
 
@@ -25,7 +28,7 @@ def defect(request):
 @authentication_classes([])
 @permission_classes([])
 def defect_overview(request):
-    return _dispatch(request, service.get_defect_overview)
+    return defect_native.get_defect_overview(request)
 
 
 @api_view(["GET", "PUT"])
@@ -47,11 +50,11 @@ def defect_send_mail(request, tid: int):
 @authentication_classes([])
 @permission_classes([])
 def defect_accept(request, tid: int):
-    return _dispatch(request, lambda legacy: service.assignment_status(legacy, True), tid=tid)
+    return defect_native.assignment_status(request, tid, accepted=True)
 
 
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def defect_reject(request, tid: int):
-    return _dispatch(request, lambda legacy: service.assignment_status(legacy, False), tid=tid)
+    return defect_native.assignment_status(request, tid, accepted=False)
