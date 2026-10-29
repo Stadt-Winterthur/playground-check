@@ -3,3 +3,5 @@ body{margin:0}header{background:#b21e2b;padding:1rem}header a{color:white;font-w
 main{max-width:66rem;margin:auto;padding:1.5rem}form{display:flex;gap:.6rem;flex-wrap:wrap}
 input,button{font:inherit;padding:.6rem}li{background:#fff;margin:.5rem 0;padding:.8rem;border:1px solid #ddd}
 :focus-visible{outline:3px solid #005a88;outline-offset:2px}
+
+nav{display:flex;flex-wrap:wrap;align-items:center;gap:1.5rem}nav a{color:#fff}nav a:first-child{margin-right:auto}a:hover{text-decoration:underline}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:1rem;margin:1.5rem 0}.tile{display:block;background:white;border:1px solid #d9e0e6;border-radius:.7rem;padding:1.2rem;color:#162433;text-decoration:none}.tile span{display:block;margin-top:.4rem;color:#475569}.note{border-left:3px solid #af1d2b;padding-left:1rem} @media(max-width:540px){nav{gap:.8rem}main{margin:1rem auto}}

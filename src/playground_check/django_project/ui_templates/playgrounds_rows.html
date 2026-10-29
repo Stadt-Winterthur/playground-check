@@ -1,0 +1,1 @@
+<p aria-live="polite">{{ count }} angezeigte Spielplätze</p><ul class="places">{% for row in rows %}<li><strong>{{ row.name }}</strong><span>{{ row.street_name }} {{ row.house_no }}</span></li>{% empty %}<li>Keine Treffer.</li>{% endfor %}</ul>

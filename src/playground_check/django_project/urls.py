@@ -2,7 +2,9 @@
 
 from django.urls import path, re_path
 from .frontend import frontend
-from .python_ui import home as python_ui_home, playgrounds as python_ui_playgrounds
+from .python_ui import (home as python_ui_home, playgrounds as python_ui_playgrounds,
+    workspace as python_ui_workspace, assigned_playgrounds as python_ui_assigned,
+    playground_detail as python_ui_detail)
 
 from . import account_document_push_views, defect_views, inspection_device_views
 
@@ -11,6 +13,9 @@ from .views import django_health, health, public_playgrounds, inspection_types, 
 urlpatterns = [
     path("__ui/", python_ui_home, name="python-ui-home"),
     path("__ui/playgrounds/", python_ui_playgrounds, name="python-ui-playgrounds"),
+    path("__ui/workspace/", python_ui_workspace, name="python-ui-workspace"),
+    path("__ui/assigned/", python_ui_assigned, name="python-ui-assigned"),
+    path("__ui/detail/", python_ui_detail, name="python-ui-detail"),
     path("Account/Login/", account_document_push_views.login, name="account-login"),
     path("Account/Logout/", account_document_push_views.logout, name="account-logout"),
     path("Account/Me/", account_document_push_views.account_me, name="account-me"),

@@ -1,57 +1,127 @@
-"""Opt-in Python-first UI preview, without replacing production SPA."""
-from html import escape
+"""Opt-in Django template GUI. Read-only views reuse the established repositories.
+
+The old SPA must remain available until browser functionality and offline sync have
+been rebuilt and acceptance-tested. Never expose private data to unauthenticated users.
+"""
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
 from django.http import HttpResponse
+from django.template import Context, Engine
 from django.views.decorators.http import require_GET
-from playground_check.db import connect
+
 from playground_check.config import settings
+from playground_check.db import connect
+from playground_check.domain_support import require_user, playground_by_name_data, playground_only_names_data
+from playground_check.http import Request as LegacyRequest
+
+LOGGER = logging.getLogger(__name__)
+TEMPLATE_ROOT = Path(__file__).resolve().parent / "ui_templates"
+ENGINE = Engine(dirs=[str(TEMPLATE_ROOT)], autoescape=True)
 
 
-def _url(request, suffix):
-    """Build an application-relative URL for proxied and direct requests."""
-    prefix = (request.META.get("SCRIPT_NAME") or settings.base_path or "").rstrip("/")
-    if prefix and not prefix.startswith("/"):
-        prefix = "/" + prefix
-    return prefix + suffix
+def _prefix(request):
+    """Keep all links and assets under the actual reverse-proxy application path."""
+    value = (request.META.get("SCRIPT_NAME") or settings.base_path or "").rstrip("/")
+    return ("/" + value.lstrip("/")) if value else ""
 
 
-def page(title, body, status=200, request=None):
-    css_url = escape(_url(request, "/static/css/python-ui.css"), quote=True)
-    home_url = escape(_url(request, "/__ui/"), quote=True)
-    document = ('<!doctype html><html lang="de"><head><meta charset="utf-8">'
-                '<meta name="viewport" content="width=device-width, initial-scale=1">'
-                f'<link rel="stylesheet" href="{css_url}">'
-                f'<title>{escape(title)}</title></head><body>'
-                f'<header><a href="{home_url}">Spielplatzkontrolle Winterthur</a></header>'
-                f'<main>{body}</main></body></html>')
-    response = HttpResponse(document, status=status, content_type='text/html; charset=utf-8')
-    response['Content-Security-Policy'] = ("default-src 'none'; style-src 'self'; "
-        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+def _render(request, template, data=None, *, status=200, partial=False):
+    values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", **(data or {})}
+    if partial:
+        body = ENGINE.get_template(template).render(Context(values))
+    else:
+        values["body"] = ENGINE.get_template(template).render(Context(values))
+        body = ENGINE.get_template("layout.html").render(Context(values))
+    response = HttpResponse(body, status=status, content_type="text/html; charset=utf-8")
+    response["Content-Security-Policy"] = (
+        "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; "
+        "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "no-store" if values.get("private") else "private, max-age=0"
     return response
+
+
+def _identity(request):
+    """Use the same validated cookie/JWT and database revalidation as the DRF API."""
+    return require_user(LegacyRequest(dict(request.META)))
+
+
+def _private(request):
+    try:
+        user, error = _identity(request)
+    except Exception:
+        LOGGER.exception("GUI authentication failed")
+        return None, _render(request, "error.html", {"message": "Anmeldung derzeit nicht möglich.", "private": True}, status=503)
+    if error or not user:
+        return None, _render(request, "login_required.html", {"private": True}, status=401)
+    return user, None
 
 
 @require_GET
 def home(request):
-    playgrounds_url = escape(_url(request, "/__ui/playgrounds/"), quote=True)
-    return page('Spielplatzkontrolle', '<h1>Neue Python-Oberfläche (Vorschau)</h1>'
-                f'<p><a href="{playgrounds_url}">Öffentliche Spielplätze</a></p>'
-                '<p>Die vollständigen Fachfunktionen bleiben in der bestehenden GUI.</p>', request=request)
+    return _render(request, "home.html")
 
 
 @require_GET
 def playgrounds(request):
-    query = (request.GET.get('q') or '').strip()[:120]
+    """Public lookup with bounded result set and HTMX progressive enhancement."""
+    query = (request.GET.get("q") or "").strip()[:120]
     try:
         with connect() as db:
             rows = db.execute('SELECT name, strassenname AS street_name, hausnummer AS house_no '
                               'FROM "wgr_sp_spielplatz" ORDER BY name').fetchall()
     except Exception:
-        return page('Spielplätze', '<p role="alert">Daten vorübergehend nicht verfügbar.</p>', 503, request=request)
-    matches = [r for r in rows if query.casefold() in str(r.get('name') or '').casefold()]
-    items = ''.join('<li><strong>' + escape(str(r.get('name') or '')) + '</strong> '
-                    + escape(str(r.get('street_name') or '')) + ' '
-                    + escape(str(r.get('house_no') or '')) + '</li>' for r in matches[:200])
-    form = (f'<form method="get" action="{escape(_url(request, "/__ui/playgrounds/"), quote=True)}"><label for="q">Spielplatz suchen</label>'
-            '<input id="q" name="q" maxlength="120" value="' + escape(query, quote=True)
-            + '"><button>Suchen</button></form>')
-    return page('Spielplätze', '<h1>Öffentliche Spielplätze</h1>' + form
-                + '<ul>' + (items or '<li>Keine Treffer</li>') + '</ul>', request=request)
+        LOGGER.exception("Could not fetch public playground list")
+        return _render(request, "error.html", {"message": "Daten vorübergehend nicht verfügbar."}, status=503)
+    found = [dict(x) for x in rows if query.casefold() in str(x.get("name") or "").casefold()][:200]
+    context = {"query": query, "rows": found, "count": len(found)}
+    partial = request.headers.get("HX-Request") == "true"
+    return _render(request, "playgrounds_rows.html" if partial else "playgrounds.html", context, partial=partial)
+
+
+@require_GET
+def workspace(request):
+    user, denied = _private(request)
+    if denied: return denied
+    return _render(request, "workspace.html", {"user": user, "private": True})
+
+
+@require_GET
+def assigned_playgrounds(request):
+    """Authorized inspection-specific playground selector from the shared domain service."""
+    user, denied = _private(request)
+    if denied: return denied
+    query = (request.GET.get("q") or "").strip()[:120]
+    inspection_type = (request.GET.get("inspectiontype") or "").strip()[:100]
+    try:
+        rows = playground_only_names_data(user, {"inspectiontype": inspection_type})
+    except Exception:
+        LOGGER.exception("Could not load assigned playgrounds")
+        return _render(request, "error.html", {"message": "Spielplätze können derzeit nicht geladen werden.", "private": True}, status=503)
+    found = [x for x in rows if query.casefold() in str(x.get("name") or "").casefold()][:200]
+    context = {"rows": found, "query": query, "inspection_type": inspection_type, "user": user, "private": True}
+    partial = request.headers.get("HX-Request") == "true"
+    return _render(request, "assigned_rows.html" if partial else "assigned.html", context, partial=partial)
+
+
+@require_GET
+def playground_detail(request):
+    """Authorized read of play devices and inspection history, no browser-side data duplication."""
+    user, denied = _private(request)
+    if denied: return denied
+    name = (request.GET.get("name") or "").strip()[:200]
+    if not name:
+        return _render(request, "error.html", {"message": "Kein Spielplatz ausgewählt.", "private": True}, status=400)
+    kind = (request.GET.get("inspectiontype") or "").strip()[:100]
+    try:
+        payload = playground_by_name_data({"name": name, "inspectiontype": kind, "withdefects": "true", "withinspections": "true"})
+    except LookupError:
+        return _render(request, "error.html", {"message": "Spielplatz nicht gefunden.", "private": True}, status=404)
+    except Exception:
+        LOGGER.exception("Could not load playground detail")
+        return _render(request, "error.html", {"message": "Spielplatzdetails sind derzeit nicht verfügbar.", "private": True}, status=503)
+    return _render(request, "detail.html", {"playground": payload, "kind": kind, "private": True, "user": user})

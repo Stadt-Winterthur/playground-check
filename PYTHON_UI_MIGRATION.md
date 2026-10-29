@@ -1,11 +1,17 @@
-# Python UI migration: isolated preview, not complete
+# Python-first GUI migration - authenticated read workflows
 
-`/__ui/` serves a Django-rendered entry page and `/__ui/playgrounds/`
-serves a read-only searchable public playground list. Existing SPA and
-all write workflows remain unchanged. The current implementation does **not**
-include HTMX interactions; this is a Python/Django preview, not a complete
-Django Templates + HTMX migration.
+This patch adds a real server-rendered Django template UI with navigation,
+public search, authenticated workspace, user-specific playground selection,
+playground details and device/defect summaries. It retains the existing DRF
+endpoints and the production SPA without changing any write behavior.
 
-Not yet migrated: authentication, inspection forms, defects, play devices,
-image/document operations, users, notifications, offline/browser state.
-The old `app.js` must not be removed until these are implemented and tested.
+**Not yet a complete replacement.** Editing inspections, defect workflows,
+photo/document uploads, users, offline queues and push notifications still need
+full parity implementation and browser acceptance tests.
+
+HTMX-compatible fragment endpoints (HX-Request) and hx attributes are included,
+but the browser enhancement is **inactive** until an approved local htmx JS
+bundle is provided. Ordinary GET forms and navigation work without JS.
+
+Test with `python -m unittest discover -s tests -v`; PostgreSQL integration
+requires `PLAYGROUND_TEST_POSTGRES_DSN`. The original frontend remains at `/`.

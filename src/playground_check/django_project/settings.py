@@ -22,3 +22,11 @@ MIDDLEWARE = []
 DATABASES = {}
 USE_TZ = True
 DEFAULT_CHARSET = "utf-8"
+
+# Server-side templates for the opt-in Python-first application.
+TEMPLATES = [{
+    "BACKEND": "django.template.backends.django.DjangoTemplates",
+    "DIRS": [],
+    "APP_DIRS": False,
+    "OPTIONS": {"loaders": ["django.template.loaders.filesystem.Loader"]},
+}]
