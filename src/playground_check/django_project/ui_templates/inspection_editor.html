@@ -3,8 +3,12 @@
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
 <input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
 <div class="cards">{% for device in devices %}<fieldset class="tile"><legend><strong>{{ device.name }}</strong> · FID {{ device.fid }}</legend>
-<label><input type="checkbox" name="checked_{{ device.fid }}"> Prüfung erledigt</label>
-<label for="comment_{{ device.fid }}">Bemerkung zur Prüfung</label><textarea id="comment_{{ device.fid }}" name="comment_{{ device.fid }}" maxlength="2000" rows="3"></textarea>
-<label for="maintenance_{{ device.fid }}">Hinweis zur Wartung</label><textarea id="maintenance_{{ device.fid }}" name="maintenance_{{ device.fid }}" maxlength="2000" rows="2"></textarea></fieldset>{% endfor %}</div>
-<p><label><input type="checkbox" name="confirm" value="yes" required> Inspektion speichern (nur bei ausdrücklicher Freigabe)</label></p>
-<button type="submit">Inspektion speichern</button></form><p class="note">Die Speicherung verwendet die bestehende Fachlogik mit Berechtigungs- und Dublettenprüfung. Offline-Erfassung und vollständige Prüfkriterien sind noch nicht portiert.</p>
+{% if device.not_to_be_checked %}<p>Dieses Gerät ist von der Kontrolle ausgenommen.</p>{% elif device.cannot_be_checked %}<p>Dieses Gerät ist als nicht prüfbar markiert; bitte zuerst Stammdaten prüfen.</p>{% elif not device.checks %}<p>Für dieses Gerät sind keine Kriterien hinterlegt.</p>{% endif %}
+{% for check in device.checks %}<details open><summary><strong>{{ check.realm }} · {{ check.label }}</strong>{% if check.fall %} · {{ check.fall }}{% endif %}</summary>
+<p>{{ check.check }}</p><label><input type="checkbox" name="inspection_done_{{ device.fid }}_{{ check.index }}" required> Prüfung abgeschlossen</label>
+<label for="comment_{{ device.fid }}_{{ check.index }}">Prüfbemerkung</label><textarea id="comment_{{ device.fid }}_{{ check.index }}" name="comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2"></textarea>
+<p>{{ check.maintenance }}</p><label><input type="checkbox" name="maintenance_done_{{ device.fid }}_{{ check.index }}" required> Wartung abgeschlossen</label>
+<label for="maintenance_comment_{{ device.fid }}_{{ check.index }}">Wartungsbemerkung</label><textarea id="maintenance_comment_{{ device.fid }}_{{ check.index }}" name="maintenance_comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2"></textarea></details>{% endfor %}
+</fieldset>{% endfor %}</div>
+<p><label><input type="checkbox" name="confirm" value="yes" required> Inspektion vollständig speichern</label></p>
+<button type="submit">Inspektion speichern</button></form><p class="note">Alle Prüfkriterien werden vor dem Speichern serverseitig aus dem autorisierten Spielplatz neu geladen. Die Schreibfreigabe bleibt bis zur Abnahme deaktiviert.</p>

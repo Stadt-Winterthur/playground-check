@@ -177,3 +177,36 @@ def admin_users(request):
                'lastName':request.POST.get('lastName','')[:100],'role':request.POST.get('role','')[:40],
                'active':request.POST.get('active')=='1'}
     return _outcome(request, _native(request, account_commands.update_user, payload, method='put', url='/Account/Users/'), 'Benutzeränderung verarbeitet.')
+
+
+@csrf_protect
+@require_http_methods(['GET', 'POST'])
+def playdevice_photo(request):
+    """Upload a device image through the validated native picture command."""
+    user, error = _guard(request, {'inspector', 'administrator'})
+    if error is not None: return error
+    fields = [('fid', 'Spielgerät-FID', 'number'), ('picture', 'Bild (PNG/JPEG)', 'file')]
+    if request.method == 'GET':
+        return _page(request, 'Spielgerätebild aktualisieren', fields, action='/__ui/device/photo/')
+    failure = _check_post(request, 8_000_000)
+    if failure is not None: return failure
+    try: fid = int(request.POST.get('fid') or '0')
+    except ValueError: fid = 0
+    if not 0 < fid < 2**31:
+        return ui._render(request, 'error.html', {'message': 'Ungültige FID.', 'private': True}, status=400)
+    uploaded = request.FILES.get('picture')
+    if not uploaded or uploaded.size > 5_000_000:
+        return ui._render(request, 'error.html', {'message': 'Bild fehlt oder ist zu gross.', 'private': True}, status=400)
+    raw = uploaded.read()
+    if raw.startswith(b'\x89PNG\r\n\x1a\n'):
+        mime = 'image/png'
+    elif raw.startswith(b'\xff\xd8\xff'):
+        mime = 'image/jpeg'
+    else:
+        return ui._render(request, 'error.html', {'message': 'Nur PNG- und JPEG-Bilder erlaubt.', 'private': True}, status=400)
+    image_data = 'data:' + mime + ';base64,' + base64.b64encode(raw).decode('ascii')
+    response = _native(request, inspection_device_commands.exchange_playdevice_picture,
+                       {'data': image_data}, method='put', url=f'/Playdevice/?fid={fid}',
+                       )
+    # Native picture command reads fid from the query string.
+    return _outcome(request, response, 'Bild aktualisiert.')

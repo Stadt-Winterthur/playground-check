@@ -17,7 +17,7 @@ class InspectionEditorTests(unittest.TestCase):
         self.rf = RequestFactory()
         self.kind = "Visuelle Inspektion (VI)"
         self.user = {"fid": 17, "role": "inspector", "mailAddress": "test@example.ch"}
-        self.payload = {"inspectionTypeOptions": [self.kind], "playdevices": [{"fid": 42, "name": "Schaukel"}], "inspectionSuspended": False}
+        self.payload = {"inspectionTypeOptions": [self.kind], "playdevices": [{"fid": 42, "name": "Schaukel", "properties": {"generalInspectionCriteria": [{"check": "Sichtkontrolle", "maintenance": "Schrauben pruefen"}]}}], "inspectionSuspended": False}
 
     def test_anonymous_cannot_access_form_or_post(self):
         for method in ("get", "post"):
@@ -50,8 +50,8 @@ class InspectionEditorTests(unittest.TestCase):
         from django.middleware.csrf import get_token
         csrf_request = self.rf.get('/__ui/inspection/')
         token = get_token(csrf_request)
-        form = {'name': 'A', 'inspectiontype': self.kind, 'checked_42': 'on',
-                'comment_42': 'Geprüft', 'checked_999': 'on', 'confirm': 'yes',
+        form = {'name': 'A', 'inspectiontype': self.kind, 'inspection_done_42_0': 'on', 'maintenance_done_42_0': 'on',
+                'comment_42_0': 'Geprüft', 'checked_999': 'on', 'confirm': 'yes',
                 'csrfmiddlewaretoken': token}
         # Plain HTML forms use URL-encoded data; RequestFactory defaults to multipart.
         request = self.rf.post('/__ui/inspection/', urlencode(form),

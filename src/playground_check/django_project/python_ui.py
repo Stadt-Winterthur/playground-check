@@ -240,7 +240,21 @@ def inspection_editor(request):
         except (TypeError, ValueError):
             continue
         if fid > 0:
-            devices.append({"fid": fid, "name": item.get("name") or f"Spielgerät {fid}"})
+            props = item.get("properties") or item
+            groups = (("generalInspectionCriteria", ""),
+                      ("mainFallProtectionInspectionCriteria", "Hauptfallschutz"),
+                      ("secondaryFallProtectionInspectionCriteria", "Nebenfallschutz"))
+            checks = []
+            for group, fall in groups:
+                for index, criterion in enumerate(props.get(group) or []):
+                    checks.append({"index": len(checks), "group": group, "fall": fall,
+                                   "label": criterion.get("checkShortText") or criterion.get("check") or "Prüfung",
+                                   "realm": criterion.get("realm") or "",
+                                   "check": criterion.get("check") or "",
+                                   "maintenance": criterion.get("maintenance") or ""})
+            devices.append({"fid": fid, "name": item.get("name") or props.get("type", {}).get("description") or f"Spielgerät {fid}",
+                            "checks": checks, "not_to_be_checked": bool(props.get("notToBeChecked")),
+                            "cannot_be_checked": bool(props.get("cannotBeChecked"))})
     if not devices or len(devices) > 300 or len({d["fid"] for d in devices}) != len(devices):
         return _render(request, "error.html", {"message": "Keine gültige Geräteliste verfügbar.", "private": True}, status=400)
     context = {"name": name, "kind": kind, "devices": devices, "private": True, "user": user}
@@ -257,13 +271,28 @@ def inspection_editor(request):
     reports = []
     for device in devices:
         fid = device["fid"]
-        comment = (request.POST.get(f"comment_{fid}") or "").strip()
-        maintenance = (request.POST.get(f"maintenance_{fid}") or "").strip()
-        if len(comment) > 2000 or len(maintenance) > 2000:
-            return _render(request, "error.html", {"message": "Kommentar zu lang.", "private": True}, status=400)
-        reports.append({"inspectionType": kind, "playdeviceFid": fid,
-                        "inspectionText": "Inspektion", "inspectionDone": request.POST.get(f"checked_{fid}") == "on",
-                        "inspectionComment": comment, "maintenanceComment": maintenance})
+        if device["not_to_be_checked"]:
+            continue
+        if device["cannot_be_checked"]:
+            return _render(request, "error.html", {"message": "Nicht prüfbare Geräte müssen zuerst in den Stammdaten bearbeitet werden.", "private": True}, status=409)
+        for criterion in device["checks"]:
+            i = criterion["index"]
+            key = f"{fid}_{i}"
+            comment = (request.POST.get(f"comment_{key}") or "").strip()
+            maintenance_comment = (request.POST.get(f"maintenance_comment_{key}") or "").strip()
+            if len(comment) > 2000 or len(maintenance_comment) > 2000:
+                return _render(request, "error.html", {"message": "Kommentar zu lang.", "private": True}, status=400)
+            if request.POST.get(f"inspection_done_{key}") != "on" or request.POST.get(f"maintenance_done_{key}") != "on":
+                return _render(request, "error.html", {"message": "Alle Prüf- und Wartungspositionen müssen abgeschlossen sein.", "private": True}, status=400)
+            reports.append({"inspectionType": kind, "playdeviceFid": fid,
+                            "inspectionText": criterion["check"],
+                            "maintenanceText": criterion["maintenance"],
+                            "fallProtectionType": criterion["fall"],
+                            "inspectionDone": True, "maintenanceDone": True,
+                            "inspectionComment": comment,
+                            "maintenanceComment": maintenance_comment})
+    if not reports:
+        return _render(request, "error.html", {"message": "Keine Prüfkriterien vorhanden.", "private": True}, status=400)
     if request.POST.get("confirm") != "yes":
         return _render(request, "error.html", {"message": "Bitte die Speicherung bestätigen.", "private": True}, status=400)
     # Reuse the existing DRF command and its authorization, duplicate detection,

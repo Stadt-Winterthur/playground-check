@@ -18,6 +18,7 @@ urlpatterns = [
     path("__ui/login/", gui_workflows.login, name="python-ui-login"),
     path("__ui/defect/edit/", gui_workflows.defect_editor, name="python-ui-defect-edit"),
     path("__ui/device/edit/", gui_workflows.device_editor, name="python-ui-device-edit"),
+    path("__ui/device/photo/", gui_workflows.playdevice_photo, name="python-ui-device-photo"),
     path("__ui/document/upload/", gui_workflows.document_editor, name="python-ui-document-upload"),
     path("__ui/admin/users/", gui_workflows.admin_users, name="python-ui-admin-users"),
     path("__ui/", python_ui_home, name="python-ui-home"),
