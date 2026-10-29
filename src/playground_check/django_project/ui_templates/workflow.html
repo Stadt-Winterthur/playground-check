@@ -1,0 +1,6 @@
+<h1>{{ title }}</h1><p>Änderungen werden serverseitig geprüft und über die vorhandene Fachlogik gespeichert.</p>
+{% if info %}<p role="alert">{{ info }}</p>{% endif %}
+<form action="{{ action }}" method="post" enctype="multipart/form-data" hx-post="{{ action }}" hx-target="#result" hx-swap="innerHTML">
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+{% for key, label, kind in fields %}<p><label>{{ label }} {% if kind == 'textarea' %}<textarea name="{{ key }}" maxlength="4000"></textarea>{% else %}<input name="{{ key }}" type="{{ kind }}" {% if kind == 'file' %}accept="application/pdf"{% endif %}>{% endif %}</label></p>{% endfor %}
+<button type="submit">Speichern</button></form><div id="result" role="status"></div>

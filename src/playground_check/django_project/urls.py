@@ -12,7 +12,14 @@ from . import account_document_push_views, defect_views, inspection_device_views
 
 from .views import django_health, health, public_playgrounds, inspection_types, renovation_types, public_playground_detail, playground_by_name, playground_only_names, playground_by_device, playground_by_id, playground_invalid_id, playground_map_image
 
+from . import python_ui_workflows as gui_workflows
+
 urlpatterns = [
+    path("__ui/login/", gui_workflows.login, name="python-ui-login"),
+    path("__ui/defect/edit/", gui_workflows.defect_editor, name="python-ui-defect-edit"),
+    path("__ui/device/edit/", gui_workflows.device_editor, name="python-ui-device-edit"),
+    path("__ui/document/upload/", gui_workflows.document_editor, name="python-ui-document-upload"),
+    path("__ui/admin/users/", gui_workflows.admin_users, name="python-ui-admin-users"),
     path("__ui/", python_ui_home, name="python-ui-home"),
     path("__ui/playgrounds/", python_ui_playgrounds, name="python-ui-playgrounds"),
     path("__ui/workspace/", python_ui_workspace, name="python-ui-workspace"),
