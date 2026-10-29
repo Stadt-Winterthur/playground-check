@@ -6,12 +6,17 @@ been rebuilt and acceptance-tested. Never expose private data to unauthenticated
 from __future__ import annotations
 
 import logging
+import os
+import json
 from pathlib import Path
 from functools import wraps
 
 from django.http import HttpResponse
+from django.test import RequestFactory
+from django.middleware.csrf import get_token
+from django.views.decorators.csrf import csrf_protect
 from django.template import Context, Engine
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
 from playground_check.config import settings
 from playground_check.db import connect
@@ -193,3 +198,85 @@ def defects(request):
               "private": True, "user": user}
     partial = request.headers.get("HX-Request") == "true"
     return _render(request, "defects_rows.html" if partial else "defects.html", values, partial=partial)
+
+
+@csrf_protect
+@require_http_methods(["GET", "POST"])
+@ui_login_required
+def inspection_editor(request):
+    """Logged-in, CSRF-protected inspection form; writes via tested domain command.
+
+    Always re-resolve the playground and eligible device IDs on POST: never
+    accept a client-provided device set, inspection type or playground identity.
+    """
+    from .inspection_device_commands import create_inspection
+    user, denied = _private(request)
+    if denied is not None:
+        return denied
+    if user.get("role") not in {"inspector", "administrator"}:
+        return _render(request, "error.html", {"message": "Keine Berechtigung für Inspektionen.", "private": True}, status=403)
+    source = request.POST if request.method == "POST" else request.GET
+    name = (source.get("name") or "").strip()[:200]
+    kind = (source.get("inspectiontype") or "").strip()[:100]
+    if not name or not kind:
+        return _render(request, "error.html", {"message": "Spielplatz und Inspektionsart erforderlich.", "private": True}, status=400)
+    try:
+        permitted = playground_only_names_data(user, {"inspectiontype": kind})
+        if not any(x.get("name") == name and not x.get("inspectionSuspended") for x in permitted):
+            return _render(request, "error.html", {"message": "Inspektion für diesen Spielplatz nicht freigegeben.", "private": True}, status=403)
+        payload = playground_by_name_data({"name": name, "inspectiontype": kind, "withdefects": "true", "withinspections": "true"})
+    except Exception:
+        LOGGER.exception("Failed to prepare inspection editor")
+        return _render(request, "error.html", {"message": "Inspektion derzeit nicht verfügbar.", "private": True}, status=503)
+    if payload.get("inspectionSuspended"):
+        return _render(request, "error.html", {"message": "Inspektionen sind ausgesetzt.", "private": True}, status=403)
+    options = payload.get("inspectionTypeOptions") or []
+    if kind not in options:
+        return _render(request, "error.html", {"message": "Unbekannte Inspektionsart.", "private": True}, status=400)
+    devices = []
+    for item in payload.get("playdevices") or []:
+        try:
+            fid = int(item.get("fid") or 0)
+        except (TypeError, ValueError):
+            continue
+        if fid > 0:
+            devices.append({"fid": fid, "name": item.get("name") or f"Spielgerät {fid}"})
+    if not devices or len(devices) > 300 or len({d["fid"] for d in devices}) != len(devices):
+        return _render(request, "error.html", {"message": "Keine gültige Geräteliste verfügbar.", "private": True}, status=400)
+    context = {"name": name, "kind": kind, "devices": devices, "private": True, "user": user}
+    if request.method == "GET":
+        context["csrf_token_value"] = get_token(request)
+        return _render(request, "inspection_editor.html", context)
+    # Keep writes disabled until full criteria and browser acceptance are verified.
+    if os.environ.get("PLAYGROUND_UI_INSPECTION_WRITE_ENABLED", "").lower() != "true":
+        return _render(request, "error.html", {"message": "Speicherung in der neuen Oberfläche ist noch nicht freigegeben.", "private": True}, status=403)
+    if request.content_type != "application/x-www-form-urlencoded":
+        return _render(request, "error.html", {"message": "Ungültiger Formularinhalt.", "private": True}, status=400)
+    if len(request.body) > 200000:
+        return _render(request, "error.html", {"message": "Formular ist zu gross.", "private": True}, status=413)
+    reports = []
+    for device in devices:
+        fid = device["fid"]
+        comment = (request.POST.get(f"comment_{fid}") or "").strip()
+        maintenance = (request.POST.get(f"maintenance_{fid}") or "").strip()
+        if len(comment) > 2000 or len(maintenance) > 2000:
+            return _render(request, "error.html", {"message": "Kommentar zu lang.", "private": True}, status=400)
+        reports.append({"inspectionType": kind, "playdeviceFid": fid,
+                        "inspectionText": "Inspektion", "inspectionDone": request.POST.get(f"checked_{fid}") == "on",
+                        "inspectionComment": comment, "maintenanceComment": maintenance})
+    if request.POST.get("confirm") != "yes":
+        return _render(request, "error.html", {"message": "Bitte die Speicherung bestätigen.", "private": True}, status=400)
+    # Reuse the existing DRF command and its authorization, duplicate detection,
+    # table locks, and FID/TID rules. No independent SQL write implementation.
+    meta = {k: v for k, v in request.META.items() if k.startswith("HTTP_") and k != "HTTP_CONTENT_LENGTH"}
+    native_request = RequestFactory().post("/Inspection/", data=json.dumps(reports),
+                                           content_type="application/json", **meta)
+    result = create_inspection(native_request)
+    try:
+        result_data = json.loads(result.content)
+    except (TypeError, ValueError):
+        result_data = {}
+    if result.status_code != 200 or result_data.get("errorMessage") != "":
+        LOGGER.warning("Inspection was rejected with status %s", result.status_code)
+        return _render(request, "error.html", {"message": "Inspektion konnte nicht gespeichert werden. Bitte Berechtigung, Datum und Eingaben prüfen.", "private": True}, status=409)
+    return _render(request, "inspection_success.html", {"name": name, "kind": kind, "private": True})

@@ -1,0 +1,10 @@
+<h1>Inspektion erfassen</h1><p><strong>{{ name }}</strong> · {{ kind }}</p>
+<form method="post" action="{{ prefix }}/__ui/inspection/">
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+<input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
+<div class="cards">{% for device in devices %}<fieldset class="tile"><legend><strong>{{ device.name }}</strong> · FID {{ device.fid }}</legend>
+<label><input type="checkbox" name="checked_{{ device.fid }}"> Prüfung erledigt</label>
+<label for="comment_{{ device.fid }}">Bemerkung zur Prüfung</label><textarea id="comment_{{ device.fid }}" name="comment_{{ device.fid }}" maxlength="2000" rows="3"></textarea>
+<label for="maintenance_{{ device.fid }}">Hinweis zur Wartung</label><textarea id="maintenance_{{ device.fid }}" name="maintenance_{{ device.fid }}" maxlength="2000" rows="2"></textarea></fieldset>{% endfor %}</div>
+<p><label><input type="checkbox" name="confirm" value="yes" required> Inspektion speichern (nur bei ausdrücklicher Freigabe)</label></p>
+<button type="submit">Inspektion speichern</button></form><p class="note">Die Speicherung verwendet die bestehende Fachlogik mit Berechtigungs- und Dublettenprüfung. Offline-Erfassung und vollständige Prüfkriterien sind noch nicht portiert.</p>
