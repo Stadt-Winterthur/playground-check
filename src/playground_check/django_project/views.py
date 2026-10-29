@@ -6,14 +6,14 @@ from django.http import HttpResponse
 from .authentication import LegacyTokenAuthentication
 from .permissions import IsLegacyAuthenticated
 
-from playground_check.service import require_user, playground_only_names_data, playground_by_device_data, playground_by_id_data
+from playground_check.domain_support import require_user, playground_only_names_data, playground_by_device_data, playground_by_id_data
 from playground_check.config import settings as legacy_settings
 
 from playground_check import __version__
 from playground_check.db import connect
 from playground_check.map_image_queries import map_image_base64
 from playground_check.playground_reads import public_feature as _public_feature
-from playground_check.service import playground_by_name_data
+from playground_check.domain_support import playground_by_name_data
 
 
 @api_view(["GET"])

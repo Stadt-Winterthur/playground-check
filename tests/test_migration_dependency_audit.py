@@ -13,8 +13,13 @@ class MigrationDependencyAuditTests(unittest.TestCase):
 
     def test_remaining_service_imports_are_visible_until_migrated(self):
         remaining = {(filename, dependency) for filename, _, dependency in scan()}
-        self.assertIn(("views.py", "playground_check.service"), remaining)
+        self.assertNotIn(("views.py", "playground_check.service"), remaining)
         self.assertIn(("wsgi.py", "playground_check.server"), remaining)
+
+    def test_drf_views_do_not_import_legacy_service(self):
+        found = scan()
+        self.assertFalse(any(filename == "views.py" and dependency == "playground_check.service"
+                             for filename, _, dependency in found))
 
     def test_results_are_sorted_and_have_real_files(self):
         found = scan()
