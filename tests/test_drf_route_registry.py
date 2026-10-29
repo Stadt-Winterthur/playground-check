@@ -11,6 +11,7 @@ class RouteRegistryTests(unittest.TestCase):
             ("GET", "/Collections/Playgrounds/Items/AbC-987", "/Collections/Playgrounds/Items/AbC-987/"),
             ("GET", "/Playground/byplaydevice/123", "/Playground/byplaydevice/123/"),
             ("GET", "/playground/123", "/Playground/123/"),
+            ("GET", "/Playground/not-a-number", "/Playground/not-a-number/"),
             ("GET", "/Defect/", "/Defect/"),
             ("PUT", "/Defect/Picture/45", "/Defect/Picture/45/"),
             ("POST", "/defect/45/SEND-MAIL", "/Defect/45/send-mail/"),
@@ -29,7 +30,7 @@ class RouteRegistryTests(unittest.TestCase):
             ("GET", "/Account/Login/"),
             ("POST", "/Playground/byname/"),
             ("POST", "/Collections/Playgrounds/Items/"),
-            ("GET", "/Playground/invalid/"),
+            ("GET", "/Playground/invalid/extra/"),
             ("GET", "/Defect/Picture/not-an-id/"),
             ("POST", "/Document/123/Name/"),
             ("GET", "/Document/"),
@@ -45,7 +46,7 @@ class RouteRegistryTests(unittest.TestCase):
     def test_canonical_paths_cover_all_declared_routes(self):
         from playground_check.django_project.route_registry import ROUTES
         for _, methods, canonical in ROUTES:
-            sample = canonical.replace("{fid}", "123").replace("{tid}", "456").replace("{uuid}", "abc")
+            sample = canonical.replace("{fid}", "123").replace("{tid}", "456").replace("{uuid}", "abc").replace("{invalid_id}", "bad")
             for method in methods.split():
                 with self.subTest(method=method, canonical=sample):
                     self.assertEqual(migrated_path(sample, method), sample)

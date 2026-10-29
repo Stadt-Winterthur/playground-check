@@ -4,7 +4,7 @@ from django.urls import path
 
 from . import account_document_push_views, defect_views, inspection_device_views
 
-from .views import django_health, health, public_playgrounds, inspection_types, renovation_types, public_playground_detail, playground_by_name, playground_only_names, playground_by_device, playground_by_id, playground_map_image
+from .views import django_health, health, public_playgrounds, inspection_types, renovation_types, public_playground_detail, playground_by_name, playground_only_names, playground_by_device, playground_by_id, playground_invalid_id, playground_map_image
 
 urlpatterns = [
     path("Account/Login/", account_document_push_views.login, name="account-login"),
@@ -38,4 +38,5 @@ urlpatterns = [
     path("Playground/onlynames/", playground_only_names, name="playground-only-names"),
     path("Playground/byplaydevice/<int:fid>/", playground_by_device, name="playground-by-device"),
     path("Playground/<int:fid>/", playground_by_id, name="playground-by-id"),
+    path("Playground/<str:invalid_id>/", playground_invalid_id, name="playground-invalid-id"),
 ]

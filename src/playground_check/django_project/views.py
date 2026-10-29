@@ -128,3 +128,16 @@ def playground_map_image(request):
     """Public WMS proxy: JSON base64 string, including upstream HTTP error bytes."""
     query = {key: values[-1] for key, values in request.query_params.lists()}
     return Response(map_image_base64(query))
+
+
+@api_view(["GET"])
+@authentication_classes([LegacyTokenAuthentication])
+@permission_classes([IsLegacyAuthenticated])
+def playground_invalid_id(request, invalid_id: str):
+    """Mirror the ASP.NET invalid-int model binding envelope."""
+    return Response({
+        "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+        "title": "One or more validation errors occurred.",
+        "status": 400,
+        "errors": {"id": [f"The value '{invalid_id}' is not valid."]},
+    }, status=400)

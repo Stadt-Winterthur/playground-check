@@ -7,7 +7,6 @@ Source of truth: `server.create_router()`, `django_project.route_registry.ROUTES
 
 | Method | Legacy path | Reason / follow-up |
 | --- | --- | --- |
-| GET | `/Playground/{invalid_id}` | Unconstrained ASP.NET-style model-binding validation, including malformed numeric IDs; preserve HTTP 400 JSON envelope |
 | Other/unmatched | All legacy router paths | Method-sensitive fallback preserves HTTP 405, `Allow`, 404 and malformed requests |
 | GET | `/swagger`, `/swagger/index.html`, `/swagger/v1/swagger.json` | Legacy-generated Swagger UI and OpenAPI document |
 | GET | `/static/*`, SPA routes and deep links | Frontend resources, CSP nonce, `sw.js`, history fallback, base-path behavior |
@@ -50,3 +49,16 @@ coordinates avoid the WMS request. No WMS network calls are made in tests.
 
 Remaining legacy responsibilities are malformed IDs, unmatched methods,
 Swagger/OpenAPI, SPA/static resources and generic fallbacks.
+
+## Step 40c – Malformed playground IDs
+
+Malformed IDs are now processed by a protected DRF view with the preserved 400 validation envelope. Numeric IDs remain matched first; unmatched methods and frontend/Swagger remain handled by the legacy fallback.
+
+## Step 40d – Automated legacy registry audit
+
+`python tools/check_api_routes.py` parses the legacy router's declared
+HTTP method/path patterns and checks that the method-aware Django registry
+covers every operation. This is intentionally a **coverage** check, not a
+claim that all endpoint business logic is independent of the compatibility
+adapter. SPA, static assets, Swagger and method/error fallbacks are outside
+the API router and remain delegated to the proven legacy WSGI application.

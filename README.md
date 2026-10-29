@@ -112,3 +112,9 @@ Optionale Integrationstests gegen PostgreSQL:
 export PLAYGROUND_TEST_POSTGRES_DSN='postgresql://USER:PASSWORT@HOST:5432/TESTDB'
 .venv/bin/python -m unittest tests.test_postgres_integration -v
 ```
+
+### Django migration acceptance
+
+See [MIGRATION_ACCEPTANCE.md](MIGRATION_ACCEPTANCE.md) for the acceptance
+gates and remaining compatibility dependencies. Run `sh tools/verify_migration.sh`
+in the project virtual environment before deploying.

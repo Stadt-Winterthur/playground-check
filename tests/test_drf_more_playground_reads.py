@@ -95,12 +95,22 @@ class MorePlaygroundReadsTest(unittest.TestCase):
             self.assertEqual(self.call("/Playground/123/"), (500, "Index was outside the bounds of the array."))
         fetch.assert_not_called()
 
-    def test_malformed_id_and_other_methods_stay_legacy(self):
-        from playground_check.django_project import wsgi
-        with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy:
-            for method, path in (("GET", "/Playground/123&inspectiontype=x"), ("POST", "/Playground/123/")):
-                self.assertEqual(list(wsgi.application({"REQUEST_METHOD": method, "PATH_INFO": path}, lambda *_: None)), [b"legacy"])
-        self.assertEqual(legacy.call_count, 2)
+    def test_malformed_id_uses_drf_and_other_methods_stay_legacy(self):
+        from playground_check.django_project import views, wsgi
+        from playground_check.django_project.route_registry import migrated_path
+        malformed = "/Playground/123&inspectiontype=x"
+        self.assertEqual(migrated_path(malformed, "GET"), "/Playground/123&inspectiontype=x/")
+        with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy, \
+             patch.object(views, "require_user", return_value=({"fid": 1}, None)):
+            status, payload = self.call(malformed)
+            self.assertEqual(status, 400)
+            self.assertEqual(payload["status"], 400)
+            self.assertIn("123&inspectiontype=x", payload["errors"]["id"][0])
+            self.assertEqual(list(wsgi.application(
+                {"REQUEST_METHOD": "POST", "PATH_INFO": "/Playground/123/"},
+                lambda *_: None,
+            )), [b"legacy"])
+        legacy.assert_called_once()
 
 @unittest.skipUnless(django is not None, "Django REST Framework not installed")
 class PlaygroundIdPayloadTest(unittest.TestCase):
