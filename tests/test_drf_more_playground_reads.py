@@ -79,9 +79,51 @@ class MorePlaygroundReadsTest(unittest.TestCase):
                 self.assertEqual(list(wsgi.application(env, lambda *_: None)), [b"legacy"])
         self.assertEqual(legacy.call_count, 2)
 
-    def test_numeric_playground_id_still_legacy(self):
+    def test_numeric_playground_id_uses_native_read(self):
+        from playground_check.django_project import views
+        with patch.object(views, "require_user", return_value=({"fid": 1}, None)), \
+             patch.object(views, "legacy_settings", replace(views.legacy_settings, compatibility_bugs=False)), \
+             patch.object(views, "playground_by_id_data", return_value={"id": 123}) as fetch:
+            self.assertEqual(self.call("/Playground/123/", query="withdefects=true"), (200, {"id": 123}))
+        fetch.assert_called_once_with(123, {"withdefects": "true"})
+
+    def test_numeric_playground_id_preserves_compatibility_bug(self):
+        from playground_check.django_project import views
+        with patch.object(views, "require_user", return_value=({"fid": 1}, None)), \
+             patch.object(views, "legacy_settings", replace(views.legacy_settings, compatibility_bugs=True)), \
+             patch.object(views, "playground_by_id_data") as fetch:
+            self.assertEqual(self.call("/Playground/123/"), (500, "Index was outside the bounds of the array."))
+        fetch.assert_not_called()
+
+    def test_malformed_id_and_other_methods_stay_legacy(self):
         from playground_check.django_project import wsgi
         with patch.object(wsgi, "legacy_application", return_value=[b"legacy"]) as legacy:
-            env = {"REQUEST_METHOD": "GET", "PATH_INFO": "/Playground/123/"}
-            self.assertEqual(list(wsgi.application(env, lambda *_: None)), [b"legacy"])
-        legacy.assert_called_once()
+            for method, path in (("GET", "/Playground/123&inspectiontype=x"), ("POST", "/Playground/123/")):
+                self.assertEqual(list(wsgi.application({"REQUEST_METHOD": method, "PATH_INFO": path}, lambda *_: None)), [b"legacy"])
+        self.assertEqual(legacy.call_count, 2)
+
+@unittest.skipUnless(django is not None, "Django REST Framework not installed")
+class PlaygroundIdPayloadTest(unittest.TestCase):
+    def test_id_query_reuses_detail_builder(self):
+        from playground_check import service
+        from unittest.mock import MagicMock
+        db = MagicMock()
+        manager = MagicMock()
+        manager.__enter__.return_value = db
+        with patch.object(service, "connect", return_value=manager), \
+             patch.object(service.remaining_reads_repository, "playground_by_fid", return_value={"fid": 123}) as get_row, \
+             patch.object(service, "_playground_result", return_value={"id": 123}) as build:
+            self.assertEqual(service.playground_by_id_data(123, {"inspectiontype": "Hauptinspektion", "withdefects": "true", "withinspections": "false"}), {"id": 123})
+        get_row.assert_called_once_with(db, 123)
+        build.assert_called_once_with(db, {"fid": 123}, "Hauptinspektion", True, False)
+
+    def test_missing_id_is_null_without_detail_builder(self):
+        from playground_check import service
+        from unittest.mock import MagicMock
+        manager = MagicMock()
+        manager.__enter__.return_value = MagicMock()
+        with patch.object(service, "connect", return_value=manager), \
+             patch.object(service.remaining_reads_repository, "playground_by_fid", return_value=None), \
+             patch.object(service, "_playground_result") as build:
+            self.assertIsNone(service.playground_by_id_data(999, {}))
+        build.assert_not_called()

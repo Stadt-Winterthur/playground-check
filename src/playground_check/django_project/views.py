@@ -2,10 +2,12 @@
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
+from django.http import HttpResponse
 from .authentication import LegacyTokenAuthentication
 from .permissions import IsLegacyAuthenticated
 
-from playground_check.service import require_user, playground_only_names_data, playground_by_device_data
+from playground_check.service import require_user, playground_only_names_data, playground_by_device_data, playground_by_id_data
+from playground_check.config import settings as legacy_settings
 
 from playground_check import __version__
 from playground_check.db import connect
@@ -105,3 +107,14 @@ def playground_only_names(request):
 @permission_classes([IsLegacyAuthenticated])
 def playground_by_device(request, fid: int):
     return Response(playground_by_device_data(fid))
+
+
+@api_view(["GET"])
+@authentication_classes([LegacyTokenAuthentication])
+@permission_classes([IsLegacyAuthenticated])
+def playground_by_id(request, fid: int):
+    """Numeric playground lookup, retaining the optional historic 500 behavior."""
+    if legacy_settings.compatibility_bugs:
+        return HttpResponse("Index was outside the bounds of the array.", status=500, content_type="text/plain; charset=utf-8")
+    query = {key: values[-1] for key, values in request.query_params.lists()}
+    return Response(playground_by_id_data(fid, query))

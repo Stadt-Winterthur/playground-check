@@ -576,6 +576,18 @@ def invalid_playground_id(request: Request) -> Response:
     }, 400)
 
 
+def playground_by_id_data(fid: int, query: Mapping[str, str]) -> dict[str, Any] | None:
+    """Build the established ID detail payload without legacy HTTP handlers."""
+    with connect() as db:
+        row = remaining_reads_repository.playground_by_fid(db, fid)
+        if row is None:
+            return None
+        return _playground_result(
+            db, row, query.get("inspectiontype", ""),
+            _bool(query.get("withdefects")), _bool(query.get("withinspections")),
+        )
+
+
 def get_playground_by_id(request: Request) -> Response:
     _, error = require_user(request)
     if error:

@@ -18,6 +18,7 @@ ROUTES = (
     (r"/Playground/byname", "GET", "/Playground/byname/"),
     (r"/Playground/onlynames", "GET", "/Playground/onlynames/"),
     (r"/Playground/byplaydevice/(?P<fid>\d+)", "GET", "/Playground/byplaydevice/{fid}/"),
+    (r"/Playground/(?P<fid>\d+)", "GET", "/Playground/{fid}/"),
     (r"/Collections/Playgrounds/Items", "GET", "/Collections/Playgrounds/Items/"),
     (r"/Collections/Playgrounds/Items/(?P<uuid>[^/]+)", "GET", "/Collections/Playgrounds/Items/{uuid}/"),
     (r"/Defect", "GET POST PUT", "/Defect/"),
