@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from functools import wraps
 
 from django.http import HttpResponse
 from django.template import Context, Engine
@@ -42,7 +43,8 @@ def _render(request, template, data=None, *, status=200, partial=False):
         "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
     )
     response["X-Content-Type-Options"] = "nosniff"
-    response["Cache-Control"] = "no-store" if values.get("private") else "private, max-age=0"
+    response["Cache-Control"] = "no-store"
+    response["Vary"] = "Cookie, Authorization, HX-Request"
     return response
 
 
@@ -62,14 +64,31 @@ def _private(request):
     return user, None
 
 
+def ui_login_required(view):
+    """Fail closed before ANY GUI view performs a query or renders an HTMX fragment.
+
+    Existing JWT/cookie credentials are revalidated through the established
+    domain auth layer; no parallel, weaker test-only authentication exists.
+    """
+    @wraps(view)
+    def guarded(request, *args, **kwargs):
+        _user, denial = _private(request)
+        if denial is not None:
+            return denial
+        return view(request, *args, **kwargs)
+    return guarded
+
+
 @require_GET
+@ui_login_required
 def home(request):
-    return _render(request, "home.html")
+    return _render(request, "home.html", {"private": True})
 
 
 @require_GET
+@ui_login_required
 def playgrounds(request):
-    """Public lookup with bounded result set and HTMX progressive enhancement."""
+    """Authenticated lookup with bounded result set and HTMX progressive enhancement."""
     query = (request.GET.get("q") or "").strip()[:120]
     try:
         with connect() as db:
@@ -77,14 +96,15 @@ def playgrounds(request):
                               'FROM "wgr_sp_spielplatz" ORDER BY name').fetchall()
     except Exception:
         LOGGER.exception("Could not fetch public playground list")
-        return _render(request, "error.html", {"message": "Daten vorübergehend nicht verfügbar."}, status=503)
+        return _render(request, "error.html", {"message": "Daten vorübergehend nicht verfügbar.", "private": True}, status=503)
     found = [dict(x) for x in rows if query.casefold() in str(x.get("name") or "").casefold()][:200]
-    context = {"query": query, "rows": found, "count": len(found)}
+    context = {"query": query, "rows": found, "count": len(found), "private": True}
     partial = request.headers.get("HX-Request") == "true"
     return _render(request, "playgrounds_rows.html" if partial else "playgrounds.html", context, partial=partial)
 
 
 @require_GET
+@ui_login_required
 def workspace(request):
     user, denied = _private(request)
     if denied: return denied
@@ -92,6 +112,7 @@ def workspace(request):
 
 
 @require_GET
+@ui_login_required
 def assigned_playgrounds(request):
     """Authorized inspection-specific playground selector from the shared domain service."""
     user, denied = _private(request)
@@ -110,6 +131,7 @@ def assigned_playgrounds(request):
 
 
 @require_GET
+@ui_login_required
 def playground_detail(request):
     """Authorized read of play devices and inspection history, no browser-side data duplication."""
     user, denied = _private(request)
@@ -129,6 +151,7 @@ def playground_detail(request):
 
 
 @require_GET
+@ui_login_required
 def defects(request):
     """Private defect overview with bounded display and progressive-enhancement search.
 

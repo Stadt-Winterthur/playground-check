@@ -25,7 +25,8 @@ class PythonUIV2Tests(unittest.TestCase):
         fetch.assert_not_called()
 
     def test_reverse_proxy_navigation(self):
-        response = self.ui.home(self.rf.get("/__ui/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
+        with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)):
+            response = self.ui.home(self.rf.get("/__ui/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"/stadtgruen/spielplatzkontrolle/__ui/workspace/", response.content)
 
