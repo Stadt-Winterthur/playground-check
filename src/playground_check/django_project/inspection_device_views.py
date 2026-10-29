@@ -5,7 +5,7 @@ transactions and binary/JSON response contracts during this migration.
 """
 from __future__ import annotations
 
-from .defect_views import _dispatch
+from .legacy_adapter import dispatch as _dispatch
 from playground_check import service
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 

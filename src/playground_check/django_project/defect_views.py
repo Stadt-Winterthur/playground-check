@@ -1,17 +1,9 @@
-"""DRF routing for the complete defect API, retaining established response bytes.
-
-During the transition these views use the existing service handlers so the
-PostgreSQL, authorization, SMTP and transfer-ID contracts are not duplicated.
-"""
+"""DRF boundary for native defect commands, reads and assignments."""
 from __future__ import annotations
 
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 
-from playground_check import service
-
-
-from .legacy_adapter import dispatch as _dispatch
-from . import defect_native
+from . import defect_commands, defect_native
 
 
 @api_view(["GET", "POST", "PUT"])
@@ -20,8 +12,9 @@ from . import defect_native
 def defect(request):
     if request.method == "GET":
         return defect_native.get_defect(request)
-    handlers = {"POST": service.update_defect, "PUT": service.create_defect}
-    return _dispatch(request, handlers[request.method])
+    if request.method == "POST":
+        return defect_commands.update_defect(request)
+    return defect_commands.create_defect(request)
 
 
 @api_view(["GET"])
@@ -35,15 +28,16 @@ def defect_overview(request):
 @authentication_classes([])
 @permission_classes([])
 def defect_picture(request, tid: int):
-    handler = service.get_defect_picture if request.method == "GET" else service.put_defect_picture
-    return _dispatch(request, handler, tid=tid)
+    if request.method == "GET":
+        return defect_commands.get_defect_picture(request, tid)
+    return defect_commands.put_defect_picture(request, tid)
 
 
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def defect_send_mail(request, tid: int):
-    return _dispatch(request, service.send_info_mail, tid=tid)
+    return defect_commands.send_info_mail(request, tid)
 
 
 @api_view(["POST"])

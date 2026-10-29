@@ -20,31 +20,34 @@ else:
 
 @unittest.skipIf(defect_views is None, "Django REST Framework is not installed")
 class DRFDefectMigrationTests(unittest.TestCase):
-    def test_all_methods_reach_the_existing_business_handlers(self):
+    def test_all_write_methods_use_native_commands(self):
+        from django.test import RequestFactory
+        from django.http import HttpResponse
+        native = defect_views.defect_commands
         for method, function in (("POST", "update_defect"), ("PUT", "create_defect")):
-            with self.subTest(method=method), patch.object(defect_views.service, function, return_value=LegacyResponse.json({"errorMessage": ""})) as handler:
-                from django.test import RequestFactory
-                factory = RequestFactory()
-                req = (
-                    factory.get('/Defect/')
-                    if method == 'GET'
-                    else getattr(factory, method.lower())('/Defect/', data='{}', content_type='application/json')
-                )
+            with self.subTest(method=method), patch.object(native, function,
+                    return_value=HttpResponse(b'{"errorMessage":""}', content_type="application/json")) as handler:
+                req = getattr(RequestFactory(), method.lower())('/Defect/', data='{}', content_type='application/json')
                 result = defect_views.defect(req)
                 self.assertEqual(result.status_code, 200)
                 handler.assert_called_once()
 
     def test_dynamic_id_and_error_response_bytes_are_preserved(self):
         from django.test import RequestFactory
-        with patch.object(defect_views.service, 'send_info_mail', return_value=LegacyResponse.text('SMTP nicht erreichbar', 502)) as handler:
+        from django.http import HttpResponse
+        native = defect_views.defect_commands
+        with patch.object(native, 'send_info_mail', return_value=HttpResponse(
+                'SMTP nicht erreichbar', status=502, content_type="text/plain")) as handler:
             result = defect_views.defect_send_mail(RequestFactory().post('/Defect/123/send-mail/'), tid=123)
             self.assertEqual(result.status_code, 502)
             self.assertEqual(result.content, 'SMTP nicht erreichbar'.encode())
-            self.assertEqual(handler.call_args.args[0].params['tid'], '123')
+            self.assertEqual(handler.call_args.args[1], 123)
 
     def test_picture_binary_response_and_permission_status_are_preserved(self):
         from django.test import RequestFactory
-        with patch.object(defect_views.service, 'get_defect_picture', return_value=LegacyResponse.file(b'GIF89a', 'image/gif')):
+        from django.http import HttpResponse
+        native = defect_views.defect_commands
+        with patch.object(native, 'get_defect_picture', return_value=HttpResponse(b'GIF89a', content_type='image/gif')):
             result = defect_views.defect_picture(RequestFactory().get('/Defect/Picture/17/'), tid=17)
             self.assertEqual((result.status_code, result.content, result['Content-Type']), (200, b'GIF89a', 'image/gif'))
         with patch.object(defect_views.defect_native.service, 'require_user',
@@ -52,12 +55,16 @@ class DRFDefectMigrationTests(unittest.TestCase):
             result = defect_views.defect_overview(RequestFactory().get('/Defect/Overview/'))
             self.assertEqual((result.status_code, result.content), (401, b'Unauthorized'))
 
-    def test_legacy_parser_receives_case_insensitive_json(self):
+    def test_native_parser_receives_case_insensitive_json(self):
         from django.test import RequestFactory
+        from django.http import HttpResponse
+        from playground_check.django_project.legacy_adapter import to_legacy_request
         body = '{"DefectDescription":"Test"}'
-        with patch.object(defect_views.service, 'create_defect', return_value=LegacyResponse.json({'tid': 9})) as handler:
+        def handler(request):
+            self.assertEqual(to_legacy_request(request).json().get('defectDescription'), 'Test')
+            return HttpResponse(b'{"tid":9}', content_type='application/json')
+        with patch.object(defect_views.defect_commands, 'create_defect', side_effect=handler):
             defect_views.defect(RequestFactory().put('/Defect/', data=body, content_type='application/json'))
-            self.assertEqual(handler.call_args.args[0].json().get('defectDescription'), 'Test')
 
     def test_native_defect_read_and_assignment_skip_legacy_handlers(self):
         from django.test import RequestFactory
