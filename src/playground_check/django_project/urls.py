@@ -2,12 +2,15 @@
 
 from django.urls import path, re_path
 from .frontend import frontend
+from .python_ui import home as python_ui_home, playgrounds as python_ui_playgrounds
 
 from . import account_document_push_views, defect_views, inspection_device_views
 
 from .views import django_health, health, public_playgrounds, inspection_types, renovation_types, public_playground_detail, playground_by_name, playground_only_names, playground_by_device, playground_by_id, playground_invalid_id, playground_map_image
 
 urlpatterns = [
+    path("__ui/", python_ui_home, name="python-ui-home"),
+    path("__ui/playgrounds/", python_ui_playgrounds, name="python-ui-playgrounds"),
     path("Account/Login/", account_document_push_views.login, name="account-login"),
     path("Account/Logout/", account_document_push_views.logout, name="account-logout"),
     path("Account/Me/", account_document_push_views.account_me, name="account-me"),

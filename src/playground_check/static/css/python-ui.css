@@ -1,0 +1,5 @@
+:root{font-family:system-ui,sans-serif;color:#162433;background:#f5f7f8}
+body{margin:0}header{background:#b21e2b;padding:1rem}header a{color:white;font-weight:700}
+main{max-width:66rem;margin:auto;padding:1.5rem}form{display:flex;gap:.6rem;flex-wrap:wrap}
+input,button{font:inherit;padding:.6rem}li{background:#fff;margin:.5rem 0;padding:.8rem;border:1px solid #ddd}
+:focus-visible{outline:3px solid #005a88;outline-offset:2px}
