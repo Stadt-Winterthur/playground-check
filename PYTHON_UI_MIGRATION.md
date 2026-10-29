@@ -15,3 +15,7 @@ bundle is provided. Ordinary GET forms and navigation work without JS.
 
 Test with `python -m unittest discover -s tests -v`; PostgreSQL integration
 requires `PLAYGROUND_TEST_POSTGRES_DSN`. The original frontend remains at `/`.
+
+## Nächster Fachbereich: Mängelübersicht
+
+Unter `/__ui/defects/` ist eine geschützte, lesende Mängelübersicht verfügbar. Sie verwendet `remaining_reads_repository.defect_overview_rows`, filtert nach Status und Suchtext und begrenzt die Ausgabe auf 30 Datensätze je Seite. Bearbeitung und Offline-Synchronisierung bleiben in der bestehenden GUI. HTMX-Attribute sind vorbereitet, aber ohne lokal eingebundene HTMX-JavaScript-Bibliothek erfolgt die Suche mit normalem GET-Formular.

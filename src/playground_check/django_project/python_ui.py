@@ -15,6 +15,7 @@ from django.views.decorators.http import require_GET
 from playground_check.config import settings
 from playground_check.db import connect
 from playground_check.domain_support import require_user, playground_by_name_data, playground_only_names_data
+from playground_check.remaining_reads_repository import defect_overview_rows
 from playground_check.http import Request as LegacyRequest
 
 LOGGER = logging.getLogger(__name__)
@@ -125,3 +126,47 @@ def playground_detail(request):
         LOGGER.exception("Could not load playground detail")
         return _render(request, "error.html", {"message": "Spielplatzdetails sind derzeit nicht verfügbar.", "private": True}, status=503)
     return _render(request, "detail.html", {"playground": payload, "kind": kind, "private": True, "user": user})
+
+
+@require_GET
+def defects(request):
+    """Private defect overview with bounded display and progressive-enhancement search.
+
+    Uses the same read-only repository as the DRF defect overview; no direct SQL
+    in templates and no mutation endpoints exposed by this page.
+    """
+    user, denied = _private(request)
+    if denied:
+        return denied
+    query = (request.GET.get("q") or "").strip()[:120]
+    state = (request.GET.get("state") or "open").strip().lower()
+    if state not in {"open", "all", "done"}:
+        state = "open"
+    try:
+        page = max(1, min(10000, int(request.GET.get("page", "1"))))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        with connect() as db:
+            rows = defect_overview_rows(db)
+    except Exception:
+        LOGGER.exception("Could not load defect overview")
+        return _render(request, "error.html", {"message": "Mängel sind derzeit nicht verfügbar.", "private": True}, status=503)
+    filtered = []
+    for item in rows:
+        row = dict(item)
+        done = row.get("done_by") is not None
+        if (state == "open" and done) or (state == "done" and not done):
+            continue
+        if query and query.casefold() not in " ".join(str(row.get(key) or "") for key in ("playground_name", "playdevice_type", "description", "responsible_user_name")).casefold():
+            continue
+        filtered.append(row)
+    size = 30
+    count = len(filtered)
+    offset = (page - 1) * size
+    values = {"rows": filtered[offset:offset + size], "query": query, "state": state,
+              "page": page, "has_previous": page > 1, "has_next": offset + size < count,
+              "previous": page - 1, "next": page + 1, "count": count,
+              "private": True, "user": user}
+    partial = request.headers.get("HX-Request") == "true"
+    return _render(request, "defects_rows.html" if partial else "defects.html", values, partial=partial)

@@ -1,0 +1,5 @@
+<h1>Mängelübersicht</h1><p>Lesender Überblick über die erfassten Mängel.</p>
+<form method="get" action="{{ prefix }}/__ui/defects/" role="search">
+<label for="defect-query">Suche</label><input id="defect-query" type="search" name="q" maxlength="120" value="{{ query }}" hx-get="{{ prefix }}/__ui/defects/" hx-target="#defect-results" hx-include="closest form" hx-trigger="input changed delay:400ms, search">
+<label for="defect-state">Status</label><select id="defect-state" name="state"><option value="open" {% if state == "open" %}selected{% endif %}>Offen</option><option value="done" {% if state == "done" %}selected{% endif %}>Erledigt</option><option value="all" {% if state == "all" %}selected{% endif %}>Alle</option></select>
+<button type="submit">Filtern</button></form><div id="defect-results">{% include "defects_rows.html" %}</div>
