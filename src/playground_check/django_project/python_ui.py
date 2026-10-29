@@ -380,3 +380,19 @@ def my_profile(request):
     values = {"private": True, "display_name": user.get("name") or user.get("mailAddress") or "Benutzer",
               "role": user.get("role") or "", "email": user.get("mailAddress") or ""}
     return _render(request, "profile.html", values)
+
+
+@require_GET
+@ui_login_required
+def push_settings(request):
+    """Private push controls; registration and deletion use existing authenticated API."""
+    user, denied = _private(request)
+    if denied is not None:
+        return denied
+    # The public VAPID key is intentionally public. Credentials and subscription
+    # endpoints are never embedded into the HTML.
+    public_key = settings.vapid_public_key if settings.service_worker_enabled else ""
+    return _render(request, "push_settings.html", {
+        "private": True, "user": user, "vapid_public_key": public_key,
+        "push_enabled": bool(settings.service_worker_enabled and public_key),
+    })

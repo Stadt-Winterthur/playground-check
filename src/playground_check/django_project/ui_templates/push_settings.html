@@ -1,0 +1,12 @@
+<h1>Push-Benachrichtigungen</h1>
+<p>Benachrichtigungen lassen sich für diesen Browser aktivieren oder deaktivieren. Deine Anmeldung bleibt für beide Aktionen erforderlich.</p>
+{% if push_enabled %}
+<section id="push-controls" data-base-path="{{ prefix }}" data-vapid-key="{{ vapid_public_key }}">
+  <p id="push-status" role="status" aria-live="polite">Status wird geprüft …</p>
+  <button type="button" id="push-enable" disabled>Benachrichtigungen aktivieren</button>
+  <button type="button" id="push-disable" disabled>Benachrichtigungen deaktivieren</button>
+</section>
+<script src="{{ prefix }}/static/js/python-ui-push.js" defer></script>
+{% else %}
+<p>Push ist auf diesem Server nicht konfiguriert.</p>
+{% endif %}

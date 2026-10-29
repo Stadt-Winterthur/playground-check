@@ -6,7 +6,7 @@ from .python_ui import (home as python_ui_home, playgrounds as python_ui_playgro
     workspace as python_ui_workspace, assigned_playgrounds as python_ui_assigned,
     playground_detail as python_ui_detail, defects as python_ui_defects,
     inspection_editor as python_ui_inspection, defect_detail as python_ui_defect_detail,
-    my_profile as python_ui_profile)
+    my_profile as python_ui_profile, push_settings as python_ui_push)
 
 from . import account_document_push_views, defect_views, inspection_device_views
 
@@ -30,6 +30,7 @@ urlpatterns = [
     path("__ui/inspection/", python_ui_inspection, name="python-ui-inspection"),
     path("__ui/defect/", python_ui_defect_detail, name="python-ui-defect-detail"),
     path("__ui/profile/", python_ui_profile, name="python-ui-profile"),
+    path("__ui/push/", python_ui_push, name="python-ui-push"),
     path("Account/Login/", account_document_push_views.login, name="account-login"),
     path("Account/Logout/", account_document_push_views.logout, name="account-logout"),
     path("Account/Me/", account_document_push_views.account_me, name="account-me"),
