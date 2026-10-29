@@ -7,13 +7,12 @@ Source of truth: `server.create_router()`, `django_project.route_registry.ROUTES
 
 | Method | Legacy path | Reason / follow-up |
 | --- | --- | --- |
-| GET | `/Playground/mapimage` | WMS-proxy read, external network and base64 JSON contract; migrate and test upstream HTTP/error behavior separately |
 | GET | `/Playground/{invalid_id}` | Unconstrained ASP.NET-style model-binding validation, including malformed numeric IDs; preserve HTTP 400 JSON envelope |
 | Other/unmatched | All legacy router paths | Method-sensitive fallback preserves HTTP 405, `Allow`, 404 and malformed requests |
 | GET | `/swagger`, `/swagger/index.html`, `/swagger/v1/swagger.json` | Legacy-generated Swagger UI and OpenAPI document |
 | GET | `/static/*`, SPA routes and deep links | Frontend resources, CSP nonce, `sw.js`, history fallback, base-path behavior |
 
-`GET /Playground/{numeric_id}` was moved to DRF in this step (with
+`GET /Playground/{numeric_id}` and `GET /Playground/mapimage` were moved to DRF in steps 40a and 40b respectively (with
 `compatibility_bugs` behavior and authorization preserved). Other routes
 registered in `server.create_router()` have entries in the DRF method-aware
 registry; **this does not prove they are fully free of legacy service helpers**.
@@ -40,3 +39,14 @@ registry; **this does not prove they are fully free of legacy service helpers**.
    deep links, Swagger and static files in the deployed test environment.
 6. Run the full regression suite and isolated PostgreSQL integration tests;
    never run write integration tests on the production database.
+
+## Step 40b – Map image
+
+`GET /Playground/mapimage` now uses a public DRF view, with a shared WMS
+helper (`map_image_queries.py`) reused by the legacy service. Its response is
+a JSON string containing base64 of the upstream response bytes, not a PNG
+response. The HTTPError body is also encoded as before, and missing or zero
+coordinates avoid the WMS request. No WMS network calls are made in tests.
+
+Remaining legacy responsibilities are malformed IDs, unmatched methods,
+Swagger/OpenAPI, SPA/static resources and generic fallbacks.

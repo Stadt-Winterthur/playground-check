@@ -11,6 +11,7 @@ from playground_check.config import settings as legacy_settings
 
 from playground_check import __version__
 from playground_check.db import connect
+from playground_check.map_image_queries import map_image_base64
 from playground_check.playground_reads import public_feature as _public_feature
 from playground_check.service import playground_by_name_data
 
@@ -118,3 +119,12 @@ def playground_by_id(request, fid: int):
         return HttpResponse("Index was outside the bounds of the array.", status=500, content_type="text/plain; charset=utf-8")
     query = {key: values[-1] for key, values in request.query_params.lists()}
     return Response(playground_by_id_data(fid, query))
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def playground_map_image(request):
+    """Public WMS proxy: JSON base64 string, including upstream HTTP error bytes."""
+    query = {key: values[-1] for key, values in request.query_params.lists()}
+    return Response(map_image_base64(query))

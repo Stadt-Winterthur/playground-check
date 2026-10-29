@@ -20,6 +20,7 @@ from . import user_repository, user_write_repository, document_write_repository,
 from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
 from .http import Request, Response
 from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
+from .map_image_queries import map_image_base64
 from .playground_detail_serializers import (
     report_dict as _report_dict,
     criterion_dict as _criterion_dict,
@@ -416,24 +417,7 @@ def public_playground(request: Request) -> Response:
 
 
 def get_map_image(request: Request) -> Response:
-    x = float(request.query.get("x", "0") or 0)
-    y = float(request.query.get("y", "0") or 0)
-    if x == 0 or y == 0:
-        return Response.json("")
-    endpoint = settings.wms_url.strip()
-    if not endpoint.lower().startswith(("http://", "https://")):
-        endpoint = "http://" + endpoint
-    if not endpoint.rstrip("/").endswith("Spielplatzkarte"):
-        endpoint = endpoint.rstrip("/") + "/Spielplatzkarte"
-    url = endpoint + "?LAYERS=AV_UEP_Landeskarten,Spielplatz&VERSION=1.1.1&DPI=96&TRANSPARENT=TRUE&FORMAT=image%2Fpng&" \
-        "SERVICE=WMS&REQUEST=GetMap&STYLES=&SRS=EPSG%3A2056&" \
-        f"BBOX={x-10},{y-5},{x+10},{y+5}&WIDTH=800&HEIGHT=400"
-    try:
-        response = urlopen(url, timeout=20)
-    except HTTPError as exc:
-        response = exc
-    with response:
-        return Response.json(base64.b64encode(response.read()).decode("ascii"))
+    return Response.json(map_image_base64(request.query))
 
 
 def _user_name(db: Connection, fid: Any) -> str:

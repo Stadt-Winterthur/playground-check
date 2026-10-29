@@ -15,6 +15,7 @@ ROUTES = (
     (r"/Inspection/types", "GET", "/Inspection/types/"),
     (r"/Inspection/renovationtypes", "GET", "/Inspection/renovationtypes/"),
     (r"/Inspection", "POST", "/Inspection/"),
+    (r"/Playground/mapimage", "GET", "/Playground/mapimage/"),
     (r"/Playground/byname", "GET", "/Playground/byname/"),
     (r"/Playground/onlynames", "GET", "/Playground/onlynames/"),
     (r"/Playground/byplaydevice/(?P<fid>\d+)", "GET", "/Playground/byplaydevice/{fid}/"),
