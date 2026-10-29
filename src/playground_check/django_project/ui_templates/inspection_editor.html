@@ -1,5 +1,13 @@
 <h1>Inspektion erfassen</h1><p><strong>{{ name }}</strong> · {{ kind }}</p>
-<form method="post" action="{{ prefix }}/__ui/inspection/">
+<section id="offline-drafts" data-user="{{ user.fid }}" data-path="{{ prefix }}" data-inspection="{{ kind }}" data-playground="{{ name }}">
+<p id="draft-status" role="status" aria-live="polite">Offline-Entwurf: noch nicht geladen.</p>
+<button type="button" id="draft-save">Entwurf lokal sichern</button>
+<button type="button" id="draft-restore">Gesicherten Entwurf wiederherstellen</button>
+<button type="button" id="draft-delete">Entwurf löschen</button>
+<p class="note">Entwürfe bleiben ausschliesslich in diesem Browserprofil gespeichert. Sie werden niemals automatisch übertragen. Nach erneuter Anmeldung kann die Inspektion bewusst mit „Inspektion speichern“ synchronisiert werden.</p>
+</section>
+<script src="{{ prefix }}/static/js/python-ui-offline.js" defer></script>
+<form id="inspection-form" method="post" action="{{ prefix }}/__ui/inspection/">
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
 <input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
 <div class="cards">{% for device in devices %}<fieldset class="tile"><legend><strong>{{ device.name }}</strong> · FID {{ device.fid }}</legend>
@@ -11,4 +19,4 @@
 <label for="maintenance_comment_{{ device.fid }}_{{ check.index }}">Wartungsbemerkung</label><textarea id="maintenance_comment_{{ device.fid }}_{{ check.index }}" name="maintenance_comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2"></textarea></details>{% endfor %}
 </fieldset>{% endfor %}</div>
 <p><label><input type="checkbox" name="confirm" value="yes" required> Inspektion vollständig speichern</label></p>
-<button type="submit">Inspektion speichern</button></form><p class="note">Alle Prüfkriterien werden vor dem Speichern serverseitig aus dem autorisierten Spielplatz neu geladen. Die Schreibfreigabe bleibt bis zur Abnahme deaktiviert.</p>
+<button type="submit">Inspektion speichern</button></form><p class="note">Alle Prüfkriterien werden vor dem Speichern serverseitig aus dem autorisierten Spielplatz neu geladen. Die Schreibfreigabe bleibt bis zur Abnahme deaktiviert. Lokale Entwürfe sind auch ohne Freigabe möglich.</p>
