@@ -80,11 +80,14 @@ class Step33DispatchTests(unittest.TestCase):
 
     def test_post_login_preserves_json_body_and_status(self):
         from playground_check import service
-        from playground_check.http import Response
+        from playground_check.django_project import account_commands
+        from playground_check.django_project.legacy_adapter import to_legacy_request
+        from django.http import HttpResponse
         def handler(req):
-            self.assertEqual(req.json(), {"mailAddress": "test@example.org"})
-            return Response.json({"errorMessage": "invalid credentials"}, 401)
-        with patch.object(service, "login", side_effect=handler):
+            self.assertEqual(to_legacy_request(req).json(), {"mailAddress": "test@example.org"})
+            return HttpResponse(b'{"errorMessage":"invalid credentials"}', status=401, content_type="application/json")
+        with patch.object(service, "login", side_effect=AssertionError("legacy login invoked")), \
+                patch.object(account_commands, "login", side_effect=handler):
             status, headers, body = self.request("POST", "/account/login", b'{"mailAddress":"test@example.org"}')
         self.assertEqual(status, 401)
         self.assertEqual(body, b'{"errorMessage":"invalid credentials"}')

@@ -74,13 +74,12 @@ class NativeAccountQueriesTests(unittest.TestCase):
         self.assertEqual(result.content, b'')
         self.assertIn('Max-Age=0', result['Set-Cookie'])
 
-    def test_admin_writes_and_login_still_use_compatibility_layer(self):
+    def test_admin_writes_and_login_do_not_call_legacy_handlers(self):
         from django.test import RequestFactory
         from playground_check import service
-        from playground_check.http import Response
-        with patch.object(service, 'login', return_value=Response.text('invalid', 400)), \
-                patch.object(service, 'update_user', return_value=Response.json({'errorMessage': 'SPK-3'})):
+        with patch.object(service, 'login', side_effect=AssertionError('legacy login invoked')), \
+                patch.object(service, 'update_user', side_effect=AssertionError('legacy update invoked')):
             login = self.views.login(RequestFactory().post('/Account/Login/', data='{}', content_type='application/json'))
             update = self.views.users(RequestFactory().put('/Account/Users/', data='{}', content_type='application/json'))
         self.assertEqual(login.status_code, 400)
-        self.assertEqual(update.status_code, 200)
+        self.assertEqual(update.status_code, 401)
