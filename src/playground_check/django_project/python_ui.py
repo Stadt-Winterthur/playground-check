@@ -280,3 +280,74 @@ def inspection_editor(request):
         LOGGER.warning("Inspection was rejected with status %s", result.status_code)
         return _render(request, "error.html", {"message": "Inspektion konnte nicht gespeichert werden. Bitte Berechtigung, Datum und Eingaben prüfen.", "private": True}, status=409)
     return _render(request, "inspection_success.html", {"name": name, "kind": kind, "private": True})
+
+
+@csrf_protect
+@require_http_methods(["GET", "POST"])
+@ui_login_required
+def defect_detail(request):
+    """Authenticated defect detail and explicit assignment decision.
+
+    Mutation goes exclusively through the native assignment command; the browser
+    never provides a user FID, an SQL field name, or authorization context.
+    """
+    from .defect_native import assignment_status
+    user, denied = _private(request)
+    if denied is not None:
+        return denied
+    source = request.POST if request.method == "POST" else request.GET
+    try:
+        tid = int(source.get("tid", ""))
+    except (TypeError, ValueError):
+        return _render(request, "error.html", {"message": "Ungültige Mangelnummer.", "private": True}, status=400)
+    if not 0 < tid < 2**31:
+        return _render(request, "error.html", {"message": "Ungültige Mangelnummer.", "private": True}, status=400)
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action not in {"accept", "reject"}:
+            return _render(request, "error.html", {"message": "Ungültige Aktion.", "private": True}, status=400)
+        if request.content_type != "application/x-www-form-urlencoded" or len(request.body) > 12000:
+            return _render(request, "error.html", {"message": "Ungültiger Formularinhalt.", "private": True}, status=400)
+        comment = (request.POST.get("comment") or "").strip()
+        if len(comment) > 1000:
+            return _render(request, "error.html", {"message": "Kommentar zu lang.", "private": True}, status=400)
+        native_request = RequestFactory().post(
+            f"/Defect/{tid}/{'accept' if action == 'accept' else 'reject'}/",
+            data=json.dumps({"assignmentComment": comment}),
+            content_type="application/json",
+            **{k: v for k, v in request.META.items() if k.startswith("HTTP_") and k != "HTTP_CONTENT_LENGTH"},
+        )
+        try:
+            result = assignment_status(native_request, tid, accepted=action == "accept")
+            body = json.loads(result.content)
+        except Exception:
+            LOGGER.exception("Assignment action failed")
+            return _render(request, "error.html", {"message": "Zuweisung konnte nicht gespeichert werden.", "private": True}, status=503)
+        if result.status_code != 200 or body.get("errorMessage") != "":
+            return _render(request, "error.html", {"message": "Aktion nicht zulässig oder nicht erfolgreich.", "private": True}, status=403)
+    try:
+        with connect() as db:
+            from playground_check.inspection_defect_repository import defect_by_tid
+            from playground_check.domain_support import _defect_dict
+            row = defect_by_tid(db, tid)
+            data = _defect_dict(db, row) if row else None
+    except Exception:
+        LOGGER.exception("Defect detail lookup failed")
+        return _render(request, "error.html", {"message": "Mangel derzeit nicht verfügbar.", "private": True}, status=503)
+    if not data:
+        return _render(request, "error.html", {"message": "Mangel nicht gefunden.", "private": True}, status=404)
+    return _render(request, "defect_detail.html", {"defect": data, "tid": tid,
+                    "csrf_token_value": get_token(request), "private": True, "user": user,
+                    "saved": request.method == "POST"})
+
+
+@require_GET
+@ui_login_required
+def my_profile(request):
+    """Minimal private account page: authenticated identity, no password exposure."""
+    user, denial = _private(request)
+    if denial is not None:
+        return denial
+    values = {"private": True, "display_name": user.get("name") or user.get("mailAddress") or "Benutzer",
+              "role": user.get("role") or "", "email": user.get("mailAddress") or ""}
+    return _render(request, "profile.html", values)

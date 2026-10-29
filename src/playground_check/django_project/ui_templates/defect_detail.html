@@ -1,0 +1,11 @@
+<p><a href="{{ prefix }}/__ui/defects/">Zur Mängelübersicht</a></p>
+<h1>Mangel {{ tid }}</h1>{% if saved %}<p role="status">Zuweisung aktualisiert.</p>{% endif %}
+<dl><dt>Beschreibung</dt><dd>{{ defect.defectDescription|default:"–" }}</dd><dt>Kommentar</dt><dd>{{ defect.defectComment|default:"–" }}</dd><dt>Priorität</dt><dd>{{ defect.priority|default:"–" }}</dd><dt>Spielgerät (FID)</dt><dd>{{ defect.playdeviceFid|default:"–" }}</dd></dl>
+<h2>Eigene Zuweisung beantworten</h2>
+<p>Die Aktion wird serverseitig überprüft. Nur die tatsächlich zugewiesene Person darf sie ausführen.</p>
+<form method="post" action="{{ prefix }}/__ui/defect/">
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
+<label for="assignment-comment">Kommentar (optional)</label><textarea id="assignment-comment" name="comment" maxlength="1000" rows="3"></textarea>
+<button type="submit" name="action" value="accept">Zuweisung annehmen</button>
+<button type="submit" name="action" value="reject">Zuweisung ablehnen</button>
+</form>
