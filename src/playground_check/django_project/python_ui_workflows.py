@@ -14,7 +14,6 @@ from functools import wraps
 from django.http import HttpResponse, HttpResponseRedirect
 from django.utils.http import urlencode
 from django.middleware.csrf import get_token
-from django.test import RequestFactory
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods
 
@@ -23,7 +22,7 @@ from playground_check.config import settings
 from . import account_commands, defect_commands, inspection_device_commands, document_commands
 
 LOG = logging.getLogger(__name__)
-RF = RequestFactory()
+from .ui_command_adapter import invoke
 
 
 def _page(request, title, fields, *, action, values=None, info='', status=200):
@@ -56,9 +55,7 @@ def _check_post(request, max_size=400000):
 
 
 def _native(request, fn, payload, *, method='post', url='/', kwargs=None):
-    headers = {k: v for k,v in request.META.items() if k.startswith('HTTP_') and k not in ('HTTP_CONTENT_LENGTH','HTTP_CONTENT_TYPE','HTTP_X_CSRFTOKEN')}
-    downstream = getattr(RF, method.lower())(url, data=json.dumps(payload), content_type='application/json', **headers)
-    return fn(downstream, **(kwargs or {}))
+    return invoke(request, fn, payload, method=method, url=url, kwargs=kwargs)
 
 
 def _outcome(request, response, success):

@@ -8,7 +8,6 @@ from pathlib import Path
 from functools import wraps
 
 from django.http import HttpResponse, HttpResponseRedirect
-from django.test import RequestFactory
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_protect
 from django.template import Context, Engine
@@ -19,6 +18,7 @@ from playground_check.db import connect
 from playground_check.domain_support import require_user, playground_by_name_data, playground_only_names_data
 from playground_check.remaining_reads_repository import defect_overview_rows
 from playground_check.http import Request as LegacyRequest
+from .ui_command_adapter import invoke
 
 LOGGER = logging.getLogger(__name__)
 TEMPLATE_ROOT = Path(__file__).resolve().parent / "ui_templates"
@@ -381,12 +381,9 @@ def inspection_editor(request):
         return form_failure("Keine Prüfkriterien vorhanden.")
     if request.POST.get("confirm") != "yes":
         return form_failure("Bitte den Abschluss des Inspektionsberichts bestätigen.")
-    # Reuse the existing DRF command and its authorization, duplicate detection,
-    # table locks, and FID/TID rules. No independent SQL write implementation.
-    meta = {k: v for k, v in request.META.items() if k.startswith("HTTP_") and k != "HTTP_CONTENT_LENGTH"}
-    native_request = RequestFactory().post("/Inspection/", data=json.dumps(reports),
-                                           content_type="application/json", **meta)
-    result = create_inspection(native_request)
+    # Invoke the established Python command in-process. Its validation,
+    # authorization, transaction and FID/TID rules remain authoritative.
+    result = invoke(request, create_inspection, reports, url="/Inspection/")
     try:
         result_data = json.loads(result.content)
     except (TypeError, ValueError):
@@ -444,12 +441,13 @@ def defect_detail(request):
         LOGGER.warning("Defect detail form rejected: tid=%s status=%s reason=%s", tid, status, message)
         return _render(request, "error.html", {"message": message, "private": True}, status=status)
 
-    def native_request(url, payload):
-        return RequestFactory().post(
-            url, data=json.dumps(payload), content_type="application/json",
-            **{k: v for k, v in request.META.items() if k.startswith("HTTP_") and k not in
-               {"HTTP_CONTENT_LENGTH", "HTTP_CONTENT_TYPE", "HTTP_X_CSRFTOKEN"}},
-        )
+    def command(fn, url, payload, *args, **kwargs):
+        input_data = invoke_input(url, payload)
+        return fn(input_data, *args, **kwargs)
+
+    def invoke_input(url, payload):
+        from .ui_command_adapter import command_input
+        return command_input(request, payload, url=url)
 
     if request.method == "POST":
         if request.content_type not in {"application/x-www-form-urlencoded", "multipart/form-data"}:
@@ -464,9 +462,8 @@ def defect_detail(request):
                 comment = (request.POST.get("comment") or "").strip()
                 if len(comment) > 1000:
                     return fail("Kommentar zu lang.")
-                response = assignment_status(native_request(
-                    f"/Defect/{tid}/{action}/", {"assignmentComment": comment}),
-                    tid, accepted=action == "accept")
+                response = command(assignment_status, f"/Defect/{tid}/{action}/",
+                    {"assignmentComment": comment}, tid, accepted=action == "accept")
             elif action == "save":
                 with connect() as db:
                     previous = defect_by_tid(db, tid)
@@ -506,10 +503,9 @@ def defect_detail(request):
                     "dateDone": ((previous.get("date_done") or datetime.now()).isoformat()
                                  if done else None),
                 }
-                response = defect_commands.update_defect(native_request("/Defect/", payload))
+                response = command(defect_commands.update_defect, "/Defect/", payload)
             elif action == "mail":
-                response = defect_commands.send_info_mail(native_request(
-                    f"/Defect/{tid}/send-mail/", {}), tid)
+                response = command(defect_commands.send_info_mail, f"/Defect/{tid}/send-mail/", {}, tid)
             elif action in {"photo_before", "photo_after"}:
                 upload = request.FILES.get("picture")
                 if upload is None or upload.size > 5_000_000 or upload.size == 0:
@@ -523,12 +519,11 @@ def defect_detail(request):
                     return fail("Nur JPEG- und PNG-Bilder sind erlaubt.")
                 import base64
                 encoded = f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
-                response = defect_commands.put_defect_picture(native_request(
-                    f"/Defect/Picture/{tid}/", {
+                response = command(defect_commands.put_defect_picture, f"/Defect/Picture/{tid}/", {
                         "base64StringPicture": encoded,
                         "base64StringPictureThumb": encoded,
                         "afterFixing": action == "photo_after",
-                    }), tid)
+                    }, tid)
             else:
                 return fail("Ungültige Aktion.")
             if response.status_code != 200:
