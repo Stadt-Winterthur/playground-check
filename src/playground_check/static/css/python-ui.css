@@ -5,3 +5,21 @@
 @media(min-width:640px){.app-content{padding:2rem 1.7rem 6rem}.action-grid,.device-grid,.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.field{width:auto;min-width:190px}.filter-panel .field.grow{min-width:270px}}
 @media(min-width:1000px){.app-frame{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:calc(100vh - 68px)}.side-navigation{display:flex;flex-direction:column;background:white;border-right:1px solid var(--line);padding:1.5rem 1rem}.side-navigation nav{display:grid;gap:.4rem}.side-navigation a{padding:.8rem 1rem;color:#39475b;border-radius:10px;text-decoration:none;font-weight:650}.side-navigation a span{display:inline-block;min-width:26px}.side-navigation a[aria-current=page]{background:#fff0f1;color:var(--brand)}.side-meta{margin-top:auto}.side-meta a{font-size:.85rem}.bottom-navigation{display:none}.app-content{padding:2.5rem 3rem}.action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.device-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Winterthur CI and compact, lazy-loaded device detail cards. */
+:root{--brand:#eb0000;--city-ink:#172a3a;--stadtgruen:#004b36;color:var(--city-ink)}
+.brand small{color:var(--stadtgruen)}
+.device-card{padding:0;overflow:hidden;min-width:0}
+.device-card-title{padding:1rem 1rem .7rem;align-items:start}
+.device-card h3{font-size:1.05rem;line-height:1.3;overflow-wrap:anywhere}
+.device-subtitle{margin:.2rem 0 0;color:#526575;font-size:.85rem}
+.device-photo{position:relative;aspect-ratio: 4/3;background:#eef2f1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.device-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.device-no-image{font-size:.9rem;color:#536777;padding:1rem;text-align:center}
+.device-facts{grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:.3rem .6rem;font-size:.88rem;padding:.9rem 1rem;margin:0}
+.device-facts dt{color:var(--city-ink)}.device-facts dd{overflow-wrap:anywhere}
+.device-card details{margin:0 1rem;padding:.65rem 0;border-top:1px solid var(--line)}
+.device-card details summary{min-height:28px;color:var(--stadtgruen)}
+.device-defects ul{padding-left:1.2rem;margin:.6rem 0}.device-actions a{background:#eef5f1;color:var(--stadtgruen)}
+.playground-documents{display:grid;grid-template-columns:1fr;gap:.8rem;margin:1rem 0 1.7rem}.document-group{padding:1rem;background:#eff6f2;border-left:3px solid var(--stadtgruen);border-radius:7px}.document-group h2{font-size:1rem;margin:0}.document-group ul{padding-left:1.2rem;margin:.5rem 0 0}
+@media(min-width:640px){.playground-documents{grid-template-columns:repeat(2,minmax(0,1fr))}}
