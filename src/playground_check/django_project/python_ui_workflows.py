@@ -132,25 +132,114 @@ def defect_editor(request):
 
 
 @csrf_protect
-@require_http_methods(['GET','POST'])
+@require_http_methods(['GET', 'POST'])
 def device_editor(request):
-    user, error = _guard(request)
+    """Edit only renovation fields; never touch inspection checkability columns."""
+    user, error = _guard(request, {'inspector', 'administrator'})
     if error is not None: return error
-    fields = [('fid','Spielgerät-FID','number'),('recommendedYearOfRenovation','Empfohlenes Sanierungsjahr','number'),
-              ('renovationType','Sanierungsart-ID','number'),('commentRecommendedYearOfRenovation','Sanierungsbemerkung','textarea'),
-              ('cannotBeChecked','Nicht prüfbar (1/0)','number'),('cannotBeCheckedReason','Begründung','text')]
-    if request.method == 'GET': return _page(request, 'Spielgerät bearbeiten', fields, action='/__ui/device/edit/')
+    source = request.GET if request.method == 'GET' else request.POST
+    try: fid = int(source.get('fid') or 0)
+    except (ValueError, TypeError): fid = 0
+    if not 0 < fid < 2**31:
+        return ui._render(request, 'error.html', {'message': 'Spielgeraet fehlt.', 'private': True}, status=400)
+    if request.method == 'GET':
+        from playground_check.domain_support import playground_by_device_data
+        try:
+            result = playground_by_device_data(fid)
+            features = result.get('playdevices') or []
+            if not features:
+                raise LookupError(fid)
+            props = features[0].get('properties') or {}
+            from playground_check.db import connect
+            with connect() as db:
+                renovation_options = [dict(row) for row in db.execute(
+                    'SELECT id, value FROM "wgr_sp_sanierungsart_tbd" ORDER BY value').fetchall()]
+        except Exception:
+            LOG.exception('Could not load device renovation values')
+            return ui._render(request, 'error.html', {'message': 'Spielgeraet nicht verfuegbar.', 'private': True}, status=404)
+        return ui._render(request, 'device_renovation.html', {
+            'fid': fid, 'properties': props, 'renovation_options': renovation_options, 'private': True, 'user': user,
+            'csrf_token_value': get_token(request),
+        })
     failed = _check_post(request)
-    if failed: return failed
-    try: fid = int(request.POST.get('fid') or 0)
-    except ValueError: fid = 0
-    if fid <= 0: return ui._render(request, 'error.html', {'message':'Ungültige Spielgerät-FID.', 'private':True}, status=400)
-    props = {'fid':fid, 'recommendedYearOfRenovation':request.POST.get('recommendedYearOfRenovation') or None,
-             'renovationType':request.POST.get('renovationType') or None,
-             'commentRecommendedYearOfRenovation':(request.POST.get('commentRecommendedYearOfRenovation') or '')[:2000],
-             'cannotBeChecked': request.POST.get('cannotBeChecked') == '1',
-             'cannotBeCheckedReason':(request.POST.get('cannotBeCheckedReason') or '')[:1000]}
-    return _outcome(request, _native(request, inspection_device_commands.save_playdevice, {'properties':props}, url='/Playdevice/'), 'Spielgerät gespeichert.')
+    if failed is not None: return failed
+    try:
+        year_text = (request.POST.get('recommendedYearOfRenovation') or '').strip()
+        type_text = (request.POST.get('renovationType') or '').strip()
+        year = int(year_text) if year_text else None
+        renovation_type = int(type_text) if type_text else None
+        if year is not None and not 1900 <= year <= 2200: raise ValueError()
+        if renovation_type is not None and renovation_type <= 0: raise ValueError()
+    except ValueError:
+        return ui._render(request, 'error.html', {'message': 'Ungueltiges Sanierungsjahr oder Sanierungsart.', 'private': True}, status=400)
+    if renovation_type is not None:
+        from playground_check.db import connect
+        try:
+            with connect() as db:
+                known = db.execute('SELECT id FROM "wgr_sp_sanierungsart_tbd" WHERE id=%s',
+                                   (renovation_type,)).fetchone()
+            if not known:
+                return ui._render(request, 'error.html', {'message': 'Unbekannte Sanierungsart.', 'private': True}, status=400)
+        except Exception:
+            LOG.exception('Renovation type lookup failed')
+            return ui._render(request, 'error.html', {'message': 'Sanierungsarten derzeit nicht verfuegbar.', 'private': True}, status=503)
+    comment = (request.POST.get('commentRecommendedYearOfRenovation') or '').strip()
+    if len(comment) > 2000:
+        return ui._render(request, 'error.html', {'message': 'Kommentar zu lang.', 'private': True}, status=400)
+    from playground_check.playdevice_write_repository import update_renovation_only
+    from playground_check.db import connect
+    try:
+        with connect() as db:
+            update_renovation_only(db, year, renovation_type, comment or None, fid)
+    except Exception:
+        LOG.exception('Renovation update failed')
+        return ui._render(request, 'error.html', {'message': 'Speichern fehlgeschlagen.', 'private': True}, status=503)
+    return ui._render(request, 'workflow_success.html', {'message': 'Sanierungsangaben gespeichert; Kontrollstatus unveraendert.', 'private': True})
+
+
+@csrf_protect
+@require_http_methods(['GET', 'POST'])
+def device_checkability(request):
+    """Inspection-context editor, updating only checkability fields."""
+    user, error = _guard(request, {'inspector', 'administrator'})
+    if error is not None: return error
+    source = request.GET if request.method == 'GET' else request.POST
+    try: fid = int(source.get('fid') or 0)
+    except (ValueError, TypeError): fid = 0
+    if not 0 < fid < 2**31:
+        return ui._render(request, 'error.html', {'message': 'Spielgeraet fehlt.', 'private': True}, status=400)
+    if request.method == 'GET':
+        from playground_check.domain_support import playground_by_device_data
+        try:
+            result = playground_by_device_data(fid)
+            features = result.get('playdevices') or []
+            if not features:
+                raise LookupError(fid)
+            props = features[0].get('properties') or {}
+        except Exception:
+            LOG.exception('Could not load device checkability values')
+            return ui._render(request, 'error.html', {'message': 'Spielgeraet nicht verfuegbar.', 'private': True}, status=404)
+        return ui._render(request, 'device_checkability.html', {
+            'fid': fid, 'properties': props, 'private': True, 'user': user,
+            'csrf_token_value': get_token(request),
+            'name': (source.get('name') or '')[:200],
+            'kind': (source.get('inspectiontype') or '')[:100],
+        })
+    failed = _check_post(request)
+    if failed is not None: return failed
+    checked = request.POST.get('cannotBeChecked') == '1'
+    reason = (request.POST.get('cannotBeCheckedReason') or '').strip()
+    if checked and (not reason or len(reason) > 255):
+        return ui._render(request, 'error.html', {'message': 'Begruendung erforderlich (max. 255 Zeichen).', 'private': True}, status=400)
+    from playground_check.playdevice_write_repository import update_checkability_only
+    from playground_check.db import connect
+    try:
+        with connect() as db:
+            update_checkability_only(db, checked, reason if checked else '', fid)
+    except Exception:
+        LOG.exception('Checkability update failed')
+        return ui._render(request, 'error.html', {'message': 'Speichern fehlgeschlagen.', 'private': True}, status=503)
+    return ui._render(request, 'workflow_success.html', {'message': 'Pruefbarkeit gespeichert; Sanierungsangaben unveraendert.', 'private': True})
 
 
 @csrf_protect
@@ -201,9 +290,16 @@ def playdevice_photo(request):
     """Upload a device image through the validated native picture command."""
     user, error = _guard(request, {'inspector', 'administrator'})
     if error is not None: return error
-    fields = [('fid', 'Spielgerät-FID', 'number'), ('picture', 'Bild (PNG/JPEG)', 'file')]
+    source = request.GET if request.method == 'GET' else request.POST
+    try: selected_fid = int(source.get('fid') or 0)
+    except (ValueError, TypeError): selected_fid = 0
+    if not 0 < selected_fid < 2**31:
+        return ui._render(request, 'error.html', {'message': 'Kein Spielgeraet ausgewaehlt.', 'private': True}, status=400)
     if request.method == 'GET':
-        return _page(request, 'Spielgerätebild aktualisieren', fields, action='/__ui/device/photo/')
+        return ui._render(request, 'device_photo.html', {
+            'fid': selected_fid, 'private': True, 'user': user,
+            'csrf_token_value': get_token(request),
+        })
     failure = _check_post(request, 8_000_000)
     if failure is not None: return failure
     try: fid = int(request.POST.get('fid') or '0')
@@ -226,3 +322,24 @@ def playdevice_photo(request):
                        )
     # Native picture command reads fid from the query string.
     return _outcome(request, response, 'Bild aktualisiert.')
+
+
+@require_http_methods(['GET'])
+def playdevice_map(request):
+    user, error = _guard(request)
+    if error is not None: return error
+    try:
+        x, y = float(request.GET.get('x') or 0), float(request.GET.get('y') or 0)
+        if not (2_400_000 <= x <= 2_900_000 and 1_000_000 <= y <= 1_400_000):
+            raise ValueError('coordinates')
+        from playground_check.map_image_queries import map_image_base64
+        decoded = base64.b64decode(map_image_base64({'x': str(x), 'y': str(y)}), validate=True)
+        if not decoded.startswith(b'\x89PNG\r\n\x1a\n') or len(decoded) > 5_000_000:
+            raise ValueError('map image')
+    except Exception:
+        LOG.warning('Map image unavailable for device', exc_info=True)
+        return HttpResponse(status=404)
+    response = HttpResponse(decoded, content_type='image/png')
+    response['Cache-Control'] = 'private, max-age=120'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response

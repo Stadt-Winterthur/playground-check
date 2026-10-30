@@ -14,8 +14,10 @@
   {% if p.hasOpenDefects %}<span class="status warning">Offene Mängel</span>{% endif %}
   {% if p.notToBeChecked or p.cannotBeChecked %}<span class="status">Nicht kontrollieren</span>{% endif %}</div>
   <div class="device-photo"><img src="{{ prefix }}/Playdevice/{{ p.fid }}/Picture/" alt="Foto: {{ p.type.description|default:p.type.name|default:'Spielgerät' }}" loading="lazy" decoding="async"></div>
+  <p class="device-photo-action"><a class="secondary-button" href="{{ prefix }}/__ui/device/photo/?fid={{ p.fid|urlencode }}">Foto ersetzen / aufnehmen</a></p>
   <details class="device-map"><summary>Karte / Standort</summary>
-    {% if device.geometry.coordinates.0 != None and device.geometry.coordinates.1 != None %}<p class="muted">Koordinaten: {{ device.geometry.coordinates.0 }}, {{ device.geometry.coordinates.1 }}</p>{% else %}<p>Keine Standortkoordinaten vorhanden.</p>{% endif %}
+    {% if device.geometry.coordinates.0 != None and device.geometry.coordinates.1 != None %}<img class="device-map-image" src="{{ prefix }}/__ui/device/map/?x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}" alt="Kartenausschnitt des Spielgeraets" loading="lazy" decoding="async">
+    <p><a href="https://stadtplan.winterthur.ch/mini?gbapp=portal&amp;topic=Spielplatzkarte&amp;infoactive=1&amp;maponly=1&amp;onlymap=1&amp;scale=200&amp;x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}&amp;back=Hintergrundkarte_LK_AV_Situationsplan" target="_blank" rel="noopener noreferrer">Im Stadtplan anzeigen</a></p>{% else %}<p>Keine Standortkoordinaten vorhanden.</p>{% endif %}
   </details>
   <dl class="device-facts"><dt>Geräte-ID</dt><dd>{{ p.fid }}</dd>
     {% if p.supplier %}<dt>Hersteller / Lieferant</dt><dd>{{ p.supplier }}</dd>{% endif %}
@@ -26,6 +28,6 @@
     {% if p.cannotBeCheckedReason %}<dt>Kontrollhindernis</dt><dd>{{ p.cannotBeCheckedReason }}</dd>{% endif %}
   </dl>
   {% if p.defects %}<details class="device-defects"><summary>Offene Mängel ({{ p.defects|length }})</summary><ul>{% for defect in p.defects %}<li>{{ defect.defectDescription|default:'Mangel' }}</li>{% endfor %}</ul></details>{% endif %}
-  <details class="device-menu"><summary>Spielgerät bearbeiten</summary><div class="device-actions"><a href="{{ prefix }}/__ui/device/edit/?fid={{ p.fid|urlencode }}">Geräteattribute bearbeiten</a><a href="{{ prefix }}/__ui/device/photo/?fid={{ p.fid|urlencode }}">Foto aufnehmen / hochladen</a><a href="{{ prefix }}/__ui/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">Mangel erfassen</a></div></details>
+  <details class="device-menu"><summary>Spielgerät bearbeiten</summary><div class="device-actions"><a href="{{ prefix }}/__ui/device/edit/?fid={{ p.fid|urlencode }}">Geräteattribute bearbeiten</a><a href="{{ prefix }}/__ui/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">Mangel erfassen</a></div></details>
 </article>
 {% endwith %}{% empty %}<p class="empty-state">Keine Spielgeräte vorhanden.</p>{% endfor %}</div>

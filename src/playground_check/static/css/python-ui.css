@@ -23,3 +23,5 @@
 .device-defects ul{padding-left:1.2rem;margin:.6rem 0}.device-actions a{background:#eef5f1;color:var(--stadtgruen)}
 .playground-documents{display:grid;grid-template-columns:1fr;gap:.8rem;margin:1rem 0 1.7rem}.document-group{padding:1rem;background:#eff6f2;border-left:3px solid var(--stadtgruen);border-radius:7px}.document-group h2{font-size:1rem;margin:0}.document-group ul{padding-left:1.2rem;margin:.5rem 0 0}
 @media(min-width:640px){.playground-documents{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.device-photo-action{margin:.7rem 1rem}.device-photo-action a{display:flex;width:100%;font-size:.9rem}.device-map-image{display:block;width:100%;height:auto;aspect-ratio:2/1;object-fit:cover;background:#eef3f1;border:1px solid var(--line);border-radius:7px}.photo-preview{display:block;max-width:450px;width:100%;max-height:340px;object-fit:contain;background:#eef2f1;border-radius:9px}

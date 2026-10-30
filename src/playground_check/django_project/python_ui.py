@@ -242,7 +242,7 @@ def inspection_editor(request):
     devices = []
     for item in payload.get("playdevices") or []:
         try:
-            fid = int(item.get("fid") or 0)
+            fid = int((item.get("properties") or {}).get("fid") or item.get("fid") or 0)
         except (TypeError, ValueError):
             continue
         if fid > 0:

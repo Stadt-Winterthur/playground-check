@@ -1,0 +1,10 @@
+<a class="back-link" href="{{ prefix }}/__ui/assigned/">‹ Zur Spielplatzauswahl</a>
+<h1>Foto ersetzen</h1><p>Spielgeraet FID {{ fid }}. Das neue Bild ersetzt das bisherige Foto.</p>
+<img class="photo-preview" src="{{ prefix }}/Playdevice/{{ fid }}/Picture/" alt="Aktuelles Geraetefoto" loading="lazy">
+<form method="post" action="{{ prefix }}/__ui/device/photo/" enctype="multipart/form-data">
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+<input type="hidden" name="fid" value="{{ fid }}">
+<p><label for="picture">Neues Foto auswaehlen oder mit der Kamera aufnehmen</label>
+<input id="picture" name="picture" type="file" accept="image/jpeg,image/png" required></p>
+<p class="muted">JPEG oder PNG, maximal 5 MB.</p>
+<button type="submit">Foto ersetzen</button></form>

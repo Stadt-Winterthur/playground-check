@@ -1,0 +1,8 @@
+<h1>Sanierungsangaben bearbeiten</h1>
+<p>Spielgeraet FID {{ fid }}. Die Angaben zur Pruefbarkeit bleiben unveraendert.</p>
+<form method="post" action="{{ prefix }}/__ui/device/edit/">
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="fid" value="{{ fid }}">
+<p><label>Empfohlenes Sanierungsjahr <input type="number" name="recommendedYearOfRenovation" min="1900" max="2200" value="{% if properties.recommendedYearOfRenovation %}{{ properties.recommendedYearOfRenovation }}{% endif %}"></label></p>
+<p><label>Sanierungsart (ID) <select name="renovationType"><option value="">Keine Angabe</option>{% for option in renovation_options %}<option value="{{ option.id }}" {% if option.id == properties.renovationType %}selected{% endif %}>{{ option.value }}</option>{% endfor %}</select></label></p>
+<p><label>Kommentar zum empf. Sanierungsjahr <textarea name="commentRecommendedYearOfRenovation" maxlength="2000">{{ properties.commentRecommendedYearOfRenovation }}</textarea></label></p>
+<button type="submit">Sanierungsangaben speichern</button></form>
