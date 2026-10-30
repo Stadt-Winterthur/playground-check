@@ -376,43 +376,138 @@ def defect_detail(request):
         return _render(request, "error.html", {"message": "Ungültige Mangelnummer.", "private": True}, status=400)
     if not 0 < tid < 2**31:
         return _render(request, "error.html", {"message": "Ungültige Mangelnummer.", "private": True}, status=400)
-    if request.method == "POST":
-        action = request.POST.get("action")
-        if action not in {"accept", "reject"}:
-            return _render(request, "error.html", {"message": "Ungültige Aktion.", "private": True}, status=400)
-        if request.content_type != "application/x-www-form-urlencoded" or len(request.body) > 12000:
-            return _render(request, "error.html", {"message": "Ungültiger Formularinhalt.", "private": True}, status=400)
-        comment = (request.POST.get("comment") or "").strip()
-        if len(comment) > 1000:
-            return _render(request, "error.html", {"message": "Kommentar zu lang.", "private": True}, status=400)
-        native_request = RequestFactory().post(
-            f"/Defect/{tid}/{'accept' if action == 'accept' else 'reject'}/",
-            data=json.dumps({"assignmentComment": comment}),
-            content_type="application/json",
-            **{k: v for k, v in request.META.items() if k.startswith("HTTP_") and k != "HTTP_CONTENT_LENGTH"},
+    from django.http import HttpResponseRedirect
+    from playground_check import user_repository
+    from . import defect_commands
+    from .defect_native import assignment_status
+    from playground_check.domain_support import _defect_dict
+    from playground_check.inspection_defect_repository import defect_by_tid
+
+    def fail(message, status=400):
+        return _render(request, "error.html", {"message": message, "private": True}, status=status)
+
+    def native_request(url, payload):
+        return RequestFactory().post(
+            url, data=json.dumps(payload), content_type="application/json",
+            **{k: v for k, v in request.META.items() if k.startswith("HTTP_") and k not in
+               {"HTTP_CONTENT_LENGTH", "HTTP_CONTENT_TYPE", "HTTP_X_CSRFTOKEN"}},
         )
+
+    if request.method == "POST":
+        if request.content_type not in {"application/x-www-form-urlencoded", "multipart/form-data"}:
+            return fail("Ungültiger Formularinhalt.")
+        # Uploads are bounded separately below; non-file forms must stay small.
+        if len(request.body) > (8_000_000 if request.FILES else 12_000):
+            return fail("Formular ist zu gross.", 413)
+        action = request.POST.get("action")
         try:
-            result = assignment_status(native_request, tid, accepted=action == "accept")
-            body = json.loads(result.content)
+            if action in {"accept", "reject"}:
+                comment = (request.POST.get("comment") or "").strip()
+                if len(comment) > 1000:
+                    return fail("Kommentar zu lang.")
+                response = assignment_status(native_request(
+                    f"/Defect/{tid}/{action}/", {"assignmentComment": comment}),
+                    tid, accepted=action == "accept")
+            elif action == "save":
+                with connect() as db:
+                    previous = defect_by_tid(db, tid)
+                if not previous:
+                    return fail("Mangel nicht gefunden.", 404)
+                description = (request.POST.get("description") or "").strip()
+                comment = (request.POST.get("defect_comment") or "").strip()
+                if not description or len(description) > 255 or len(comment) > 255:
+                    return fail("Beschrieb erforderlich; Beschrieb und Bemerkung maximal 255 Zeichen.")
+                priority = int(request.POST.get("priority") or 0)
+                body_id = int(request.POST.get("body_id") or -1)
+                person_id = int(request.POST.get("person_id") or -1)
+                if priority not in {0, 1, 2, 3} or body_id not in {-1, 1, 2, 3} or person_id < -1:
+                    return fail("Ungültige Dringlichkeit oder Zuständigkeit.")
+                if priority == 2 and (body_id < 1 or person_id < 1):
+                    return fail("Bei Dringlichkeit B sind Zuständigkeit und Person erforderlich.")
+                if person_id > 0:
+                    with connect() as db:
+                        if not any(int(row["fid"]) == person_id for row in user_repository.assignable_users(db)):
+                            return fail("Die ausgewählte Person ist nicht zuweisbar.")
+                # Retain existing completion date and assignment metadata on an ordinary save.
+                # Only change the completion state when the checkbox changes.
+                from datetime import datetime
+                done = request.POST.get("done") == "on"
+                payload = {
+                    "tid": tid, "playdeviceFid": previous["playdevice_fid"],
+                    "defectDescription": description, "defectComment": comment,
+                    "priority": priority, "defectsResponsibleBodyId": body_id,
+                    "responsibleUserFid": person_id,
+                    "assignmentStatus": previous.get("assignment_status") or "",
+                    "dateAssignmentCreated": (previous.get("assignment_created").isoformat()
+                                               if previous.get("assignment_created") else None),
+                    "assignmentComment": previous.get("assignment_comment") or "",
+                    "dateDone": ((previous.get("date_done") or datetime.now()).isoformat()
+                                 if done else None),
+                }
+                response = defect_commands.update_defect(native_request("/Defect/", payload))
+            elif action == "mail":
+                response = defect_commands.send_info_mail(native_request(
+                    f"/Defect/{tid}/send-mail/", {}), tid)
+            elif action in {"photo_before", "photo_after"}:
+                upload = request.FILES.get("picture")
+                if upload is None or upload.size > 5_000_000 or upload.size == 0:
+                    return fail("Bitte ein Bild bis maximal 5 MB auswählen.")
+                raw = upload.read()
+                if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+                    mime = "image/png"
+                elif raw.startswith(b"\xff\xd8\xff"):
+                    mime = "image/jpeg"
+                else:
+                    return fail("Nur JPEG- und PNG-Bilder sind erlaubt.")
+                import base64
+                encoded = f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+                response = defect_commands.put_defect_picture(native_request(
+                    f"/Defect/Picture/{tid}/", {
+                        "base64StringPicture": encoded,
+                        "base64StringPictureThumb": encoded,
+                        "afterFixing": action == "photo_after",
+                    }), tid)
+            else:
+                return fail("Ungültige Aktion.")
+            if response.status_code != 200:
+                return fail("Aktion konnte nicht ausgeführt werden. Berechtigung und Angaben prüfen.", 409)
+            try:
+                answer = json.loads(response.content)
+            except (ValueError, TypeError):
+                answer = {}
+            if isinstance(answer, dict) and answer.get("errorMessage"):
+                return fail("Die Änderung wurde abgelehnt. Bitte Angaben und Berechtigung prüfen.", 409)
+            return HttpResponseRedirect(_prefix(request) + f"/__ui/defect/?tid={tid}&saved={action}")
+        except (ValueError, TypeError):
+            return fail("Ungültige Eingabe.")
         except Exception:
-            LOGGER.exception("Assignment action failed")
-            return _render(request, "error.html", {"message": "Zuweisung konnte nicht gespeichert werden.", "private": True}, status=503)
-        if result.status_code != 200 or body.get("errorMessage") != "":
-            return _render(request, "error.html", {"message": "Aktion nicht zulässig oder nicht erfolgreich.", "private": True}, status=403)
+            LOGGER.exception("Defect detail action failed")
+            return fail("Mangel konnte nicht verarbeitet werden.", 503)
     try:
         with connect() as db:
-            from playground_check.inspection_defect_repository import defect_by_tid
-            from playground_check.domain_support import _defect_dict
             row = defect_by_tid(db, tid)
             data = _defect_dict(db, row) if row else None
+            users = [dict(u) for u in user_repository.assignable_users(db)] if row else []
     except Exception:
         LOGGER.exception("Defect detail lookup failed")
-        return _render(request, "error.html", {"message": "Mangel derzeit nicht verfügbar.", "private": True}, status=503)
+        return fail("Mangel derzeit nicht verfügbar.", 503)
     if not data:
-        return _render(request, "error.html", {"message": "Mangel nicht gefunden.", "private": True}, status=404)
-    return _render(request, "defect_detail.html", {"defect": data, "tid": tid,
-                    "csrf_token_value": get_token(request), "private": True, "user": user,
-                    "saved": request.method == "POST"})
+        return fail("Mangel nicht gefunden.", 404)
+    assigned_user = next((u for u in users if u["fid"] == data["responsibleUserFid"]), None)
+    if assigned_user:
+        assigned_name = " ".join(filter(None, [assigned_user.get("first_name"), assigned_user.get("last_name")]))
+    else:
+        assigned_name = "Nicht zugewiesen" if data["responsibleUserFid"] < 1 else f"FID {data['responsibleUserFid']}"
+    return _render(request, "defect_detail.html", {
+        "defect": data, "tid": tid, "users": users, "assigned_name": assigned_name,
+        "inactive_assignee": data["responsibleUserFid"] > 0 and not assigned_user,
+        "inactive_assignee": data["responsibleUserFid"] > 0 and not assigned_user,
+        "inactive_assignee": data["responsibleUserFid"] > 0 and not assigned_user,
+        "can_respond": (data["responsibleUserFid"] == user.get("fid") and
+                         data["assignmentStatus"] != "angenommen"),
+        "csrf_token_value": get_token(request), "private": True, "user": user,
+        "saved_action": request.GET.get("saved") in {"save", "mail", "accept", "reject", "photo_before", "photo_after"},
+    })
 
 
 @require_GET

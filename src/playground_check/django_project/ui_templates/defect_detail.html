@@ -1,11 +1,92 @@
-<p><a href="{{ prefix }}/__ui/defects/">Zur Mängelübersicht</a></p>
-<h1>Mangel {{ tid }}</h1>{% if saved %}<p role="status">Zuweisung aktualisiert.</p>{% endif %}
-<dl><dt>Beschreibung</dt><dd>{{ defect.defectDescription|default:"–" }}</dd><dt>Kommentar</dt><dd>{{ defect.defectComment|default:"–" }}</dd><dt>Priorität</dt><dd>{{ defect.priority|default:"–" }}</dd><dt>Spielgerät (FID)</dt><dd>{{ defect.playdeviceFid|default:"–" }}</dd></dl>
-<h2>Eigene Zuweisung beantworten</h2>
-<p>Die Aktion wird serverseitig überprüft. Nur die tatsächlich zugewiesene Person darf sie ausführen.</p>
-<form method="post" action="{{ prefix }}/__ui/defect/">
-<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
-<label for="assignment-comment">Kommentar (optional)</label><textarea id="assignment-comment" name="comment" maxlength="1000" rows="3"></textarea>
-<button type="submit" name="action" value="accept">Zuweisung annehmen</button>
-<button type="submit" name="action" value="reject">Zuweisung ablehnen</button>
-</form>
+<div class="defect-detail-page">
+  <a class="back-link" href="{{ prefix }}/__ui/defects/">← Zur Mängelübersicht</a>
+  <header class="defect-detail-header">
+    <div><p class="eyebrow">Mängelbearbeitung</p><h1>Mangel {{ tid }}</h1>
+      <p class="muted">Spielgerät-FID {{ defect.playdeviceFid }} · TID {{ tid }}{% if defect.dateCreation %} · Erfasst am {{ defect.dateCreation|date:"d.m.Y" }}{% endif %}{% if defect.createdByName %} · {{ defect.createdByName }}{% endif %}</p>
+    </div>
+    <div class="defect-badges"><span class="defect-chip">{% if defect.done %}Erledigt{% else %}Offen{% endif %}</span></div>
+  </header>
+  {% if saved_action %}<p class="notice" role="status">Aktion erfolgreich ausgeführt.</p>{% endif %}
+
+  <form id="defect-edit" method="post" action="{{ prefix }}/__ui/defect/" class="defect-edit-form">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
+    <section class="defect-section defect-description-section" aria-labelledby="defect-description-title">
+      <h2 id="defect-description-title">Beschrieb des Mangels</h2>
+      <label for="defect-description">Beschreibung</label><textarea id="defect-description" name="description" required maxlength="255" rows="3">{{ defect.defectDescription }}</textarea>
+    </section>
+    <section class="defect-section defect-responsibility-section" aria-labelledby="defect-responsibility-title">
+      <h2 id="defect-responsibility-title">Dringlichkeit und Zuständigkeit</h2>
+      <div class="defect-select-grid">
+        <div class="field"><label for="defect-priority">Dringlichkeit</label><select id="defect-priority" name="priority">
+          <option value="0" {% if defect.priority == 0 or defect.priority == -1 %}selected{% endif %}>Keine Angabe</option>
+          <option value="1" {% if defect.priority == 1 %}selected{% endif %}>A (sofort)</option>
+          <option value="2" {% if defect.priority == 2 %}selected{% endif %}>B (mittelfristig)</option>
+          <option value="3" {% if defect.priority == 3 %}selected{% endif %}>C (im Folgejahr beurteilen)</option>
+        </select></div>
+        <div class="field"><label for="defect-body">Zuständigkeit / Typ</label><select id="defect-body" name="body_id">
+          <option value="-1">Keine Angabe</option>
+          <option value="1" {% if defect.defectsResponsibleBodyId == 1 %}selected{% endif %}>Revier</option>
+          <option value="2" {% if defect.defectsResponsibleBodyId == 2 %}selected{% endif %}>Spielplatzverantwortlicher</option>
+          <option value="3" {% if defect.defectsResponsibleBodyId == 3 %}selected{% endif %}>Projektleiter</option>
+        </select></div>
+        <div class="field"><label for="defect-person">Zuständigkeit / Person</label><select id="defect-person" name="person_id">
+          <option value="-1">Keine Person zugewiesen</option>
+          {% for person in users %}<option value="{{ person.fid }}" {% if person.fid == defect.responsibleUserFid %}selected{% endif %}>{{ person.first_name }} {{ person.last_name }}</option>{% endfor %}
+          {% if inactive_assignee %}<option value="{{ defect.responsibleUserFid }}" selected>{{ assigned_name }} (nicht mehr aktiv)</option>{% endif %}
+        </select></div>
+      </div>
+      <p class="muted">Bei Dringlichkeit B müssen Zuständigkeit und Person ausgewählt werden. Beim Wechsel der zuständigen Person wird der Auftragsstatus zurückgesetzt.</p>
+    </section>
+    <div class="defect-detail-columns">
+      <section class="defect-section" aria-labelledby="defect-completion-title">
+        <h2 id="defect-completion-title">Erledigung</h2>
+        <label class="defect-check"><input type="checkbox" name="done" {% if defect.done %}checked{% endif %}> Mangel erledigt</label>
+        <dl class="defect-mini-facts"><dt>Erledigt am</dt><dd>{{ defect.dateDone|date:"d.m.Y"|default:"Noch nicht erledigt" }}</dd><dt>Erledigt durch</dt><dd>{{ defect.doneByName|default:"–" }}</dd></dl>
+        <label for="defect-comment">Bemerkung zur Erledigung</label><textarea id="defect-comment" name="defect_comment" maxlength="255" rows="3">{{ defect.defectComment }}</textarea>
+      </section>
+      <section class="defect-section" aria-labelledby="defect-assignment-title">
+        <h2 id="defect-assignment-title">Auftrag und Zuweisung</h2>
+        <p><span class="defect-chip">{{ defect.assignmentStatus|default:"Nicht zugewiesen" }}</span></p>
+        <dl class="defect-mini-facts"><dt>Zuständige Person</dt><dd>{{ assigned_name }}</dd>
+          <dt>Zugewiesen am</dt><dd>{{ defect.dateAssignmentCreated|date:"d.m.Y H:i"|default:"–" }}</dd>
+          <dt>Angenommen am</dt><dd>{{ defect.dateAssignmentAccepted|date:"d.m.Y H:i"|default:"–" }}</dd>
+          <dt>Abgelehnt am</dt><dd>{{ defect.dateAssignmentRejected|date:"d.m.Y H:i"|default:"–" }}</dd>
+          <dt>Bemerkung zum Auftrag</dt><dd>{{ defect.assignmentComment|default:"–" }}</dd></dl>
+      </section>
+    </div>
+    <div class="defect-save-bar"><button type="submit" name="action" value="save">Änderungen speichern</button></div>
+  </form>
+
+  {% if can_respond %}<section class="defect-section" aria-labelledby="defect-decision-title">
+    <h2 id="defect-decision-title">Eigene Zuweisung beantworten</h2>
+    <p class="muted">Nur die zugewiesene Person kann ihren Auftrag annehmen oder ablehnen.</p>
+    <form method="post" action="{{ prefix }}/__ui/defect/">
+      <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
+      <label for="assignment-comment">Bemerkung zum Auftrag (optional)</label><textarea id="assignment-comment" name="comment" maxlength="1000" rows="2">{{ defect.assignmentComment }}</textarea>
+      <div class="defect-actions"><button type="submit" name="action" value="accept">Auftrag annehmen</button><button type="submit" name="action" value="reject" class="secondary-button">Auftrag ablehnen</button></div>
+    </form>
+  </section>{% endif %}
+  {% if defect.assignmentHistory %}<details class="defect-section defect-history"><summary>Zuweisungshistorie ({{ defect.assignmentHistory|length }})</summary>
+    <ol>{% for history in defect.assignmentHistory %}<li><strong>{{ history.changedAt|date:"d.m.Y H:i"|default:"–" }}</strong> · {{ history.previousUserName|default:"Nicht zugewiesen" }} → {{ history.newUserName|default:"Nicht zugewiesen" }}{% if history.changedByName %} · durch {{ history.changedByName }}{% endif %}</li>{% endfor %}</ol>
+  </details>{% endif %}
+  <div class="defect-detail-columns">
+    <section class="defect-section" aria-labelledby="defect-photos-title"><h2 id="defect-photos-title">Fotos des Mangels</h2>
+      {% if defect.defectPicsTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsTids %}<a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="Mängelfoto {{ forloop.counter }}" loading="lazy"></a>{% endfor %}</div>{% else %}<p class="muted">Noch keine Fotos vorhanden.</p>{% endif %}
+      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/__ui/defect/">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}"><label for="defect-picture-before">Foto hinzufügen (JPEG/PNG, max. 5 MB)</label><input id="defect-picture-before" type="file" name="picture" accept="image/jpeg,image/png" required><button type="submit" name="action" value="photo_before" class="secondary-button">Foto hochladen</button>
+      </form>
+    </section>
+    <section class="defect-section" aria-labelledby="defect-after-title"><h2 id="defect-after-title">Fotos nach Mangelbeseitigung</h2>
+      {% if defect.defectPicsAfterFixingTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsAfterFixingTids %}<a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="Foto nach Beseitigung {{ forloop.counter }}" loading="lazy"></a>{% endfor %}</div>{% else %}<p class="muted">Noch keine Fotos vorhanden.</p>{% endif %}
+      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/__ui/defect/">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}"><label for="defect-picture-after">Foto hinzufügen (JPEG/PNG, max. 5 MB)</label><input id="defect-picture-after" type="file" name="picture" accept="image/jpeg,image/png" required><button type="submit" name="action" value="photo_after" class="secondary-button">Foto hochladen</button>
+      </form>
+    </section>
+  </div>
+  <section class="defect-section" aria-labelledby="defect-mail-title"><h2 id="defect-mail-title">Infomail</h2>
+    {% if defect.infoMailSentAt %}<p>Letzter Versand: {{ defect.infoMailSentAt|date:"d.m.Y H:i" }}{% if defect.infoMailRecipientName %} · {{ defect.infoMailRecipientName }}{% endif %}</p>{% else %}<p class="muted">Noch keine Infomail versendet.</p>{% endif %}
+    <form method="post" action="{{ prefix }}/__ui/defect/"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
+      <button type="submit" name="action" value="mail" class="secondary-button" {% if defect.responsibleUserFid < 1 %}disabled{% endif %}>Infomail senden</button>
+    </form><p class="muted">Die Infomail wird an die aktuell zugewiesene Person gesendet. Nicht gespeicherte Änderungen werden dabei nicht übernommen.</p>
+  </section>
+</div>
