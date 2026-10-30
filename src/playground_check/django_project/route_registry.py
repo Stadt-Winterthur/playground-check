@@ -58,6 +58,11 @@ def migrated_path(path: str, method: str) -> str | None:
 
 def canonical_path(path: str) -> str | None:
     """Canonicalize known API URLs regardless of method (Django owns 405)."""
+    # Native UI routes are lowercase. Do not rewrite them to the legacy API
+    # endpoints /Inspection/ and /Defect/ (which have different HTTP methods).
+    # Keep API case normalization for other routes and their subpaths.
+    if path in ("/inspection", "/inspection/", "/defect", "/defect/"):
+        return None
     for pattern, _allowed, target in _COMPILED:
         match = pattern.fullmatch(path)
         if match:

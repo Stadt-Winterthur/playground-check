@@ -24,6 +24,25 @@ class NativeWSGICutoverTest(unittest.TestCase):
                 self.assertEqual(env["PATH_INFO"], "/Account/Login/")
                 self.assertEqual(env["REQUEST_METHOD"], method)
 
+    def test_native_ui_paths_never_become_legacy_api_routes(self):
+        for path in ("/inspection/", "/defect/"):
+            for method in ("GET", "POST"):
+                with self.subTest(path=path, method=method), patch.object(
+                    wsgi, "_django_application", return_value=[b"ok"]
+                ) as app:
+                    wsgi.application({"PATH_INFO": path, "REQUEST_METHOD": method}, lambda *_: None)
+                    self.assertEqual(app.call_args.args[0]["PATH_INFO"], path)
+
+    def test_legacy_api_paths_keep_canonical_spelling(self):
+        for path, target in (("/Inspection/", "/Inspection/"),
+                             ("/INSPECTION/types/", "/Inspection/types/"),
+                             ("/Defect/", "/Defect/")):
+            with self.subTest(path=path), patch.object(
+                wsgi, "_django_application", return_value=[b"ok"]
+            ) as app:
+                wsgi.application({"PATH_INFO": path, "REQUEST_METHOD": "GET"}, lambda *_: None)
+                self.assertEqual(app.call_args.args[0]["PATH_INFO"], target)
+
     def test_unknown_path_is_passed_directly_to_django(self):
         with patch.object(wsgi, "_django_application", return_value=[b"ok"]) as app:
             wsgi.application({"PATH_INFO": "/api/unknown", "REQUEST_METHOD": "GET"}, lambda *_: None)
