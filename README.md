@@ -15,7 +15,7 @@ Webanwendung für die Kontrolle und Mängelbearbeitung der Winterthurer Spielpl�
 
 ## Voraussetzungen
 
-- Python 3.11 oder neuer für den direkten Betrieb
+- Python 3.11 oder neuer für den lokalen Betrieb
 - PostgreSQL mit PostGIS und dem benötigten Anwendungsschema
 - für Produktion: Docker Engine mit Docker-Compose-Plugin und ein TLS-Reverse-Proxy
 
@@ -29,26 +29,21 @@ python -m playground_check --check-database
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -e .
+.venv/bin/python -m pip install -e ".[django,production]"
 cp .env.example .env
 ```
 
-Danach `.env` anpassen und starten:
+Danach `.env` (insbesondere Datenbank, Security-Key und Salt) anpassen und die Django-Anwendung starten:
 
 ```sh
-.venv/bin/python -m playground_check --host 127.0.0.1 --port 8010
-```
-
-Alternativ:
-
-```sh
-chmod +x start.sh
 ./start.sh
 ```
 
+Lokale URL: `http://127.0.0.1:8010/__ui/` (bei gesetztem `PLAYGROUND_BASE_PATH` mit diesem Präfix). `start.sh` startet Gunicorn mit `playground_check.django_project.wsgi:application`; `python -m playground_check` startet weiterhin den alten Server und ist für die neue Oberfläche ungeeignet.
+
 ## Konfiguration
 
-Die Anwendung liest beim direkten Start `.env` aus dem Projektverzeichnis. Bereits gesetzte Umgebungsvariablen haben Vorrang.
+Die Anwendung liest `.env` aus dem Projektverzeichnis. Bereits gesetzte Umgebungsvariablen haben Vorrang.
 
 Wichtige Variablen:
 
