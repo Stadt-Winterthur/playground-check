@@ -369,6 +369,17 @@ def defect_detail(request):
     user, denied = _private(request)
     if denied is not None:
         return denied
+    # Check the advertised POST size before accessing request.POST. Parsing
+    # form data consumes the input stream; reading request.body afterwards can
+    # raise RawPostDataException, especially for multipart uploads.
+    if request.method == "POST":
+        try:
+            content_length = int(request.META.get("CONTENT_LENGTH") or 0)
+        except (TypeError, ValueError):
+            content_length = -1
+        if content_length < 0 or content_length > 8_000_000:
+            LOGGER.warning("Defect form rejected: invalid content length (%s)", content_length)
+            return _render(request, "error.html", {"message": "Formular ist zu gross oder ungültig.", "private": True}, status=413)
     source = request.POST if request.method == "POST" else request.GET
     try:
         tid = int(source.get("tid", ""))
@@ -384,6 +395,7 @@ def defect_detail(request):
     from playground_check.inspection_defect_repository import defect_by_tid
 
     def fail(message, status=400):
+        LOGGER.warning("Defect detail form rejected: tid=%s status=%s reason=%s", tid, status, message)
         return _render(request, "error.html", {"message": message, "private": True}, status=status)
 
     def native_request(url, payload):
@@ -396,8 +408,9 @@ def defect_detail(request):
     if request.method == "POST":
         if request.content_type not in {"application/x-www-form-urlencoded", "multipart/form-data"}:
             return fail("Ungültiger Formularinhalt.")
-        # Uploads are bounded separately below; non-file forms must stay small.
-        if len(request.body) > (8_000_000 if request.FILES else 12_000):
+        # request.POST has already parsed the stream; never read request.body
+        # here. The content length was checked before parsing above.
+        if not request.FILES and content_length > 12_000:
             return fail("Formular ist zu gross.", 413)
         action = request.POST.get("action")
         try:

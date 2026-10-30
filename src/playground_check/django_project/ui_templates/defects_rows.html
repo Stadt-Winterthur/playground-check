@@ -1,7 +1,7 @@
 {% if rows %}
   <div class="defect-table-shell">
     <table class="defect-overview-table">
-      <thead><tr><th scope="col">Status</th><th scope="col">Spielplatz / Gerät</th><th scope="col" class="defect-wide">Geräte-FID</th><th scope="col">Dringlichkeit</th><th scope="col" class="defect-wide">Erfasst am</th><th scope="col" class="defect-wide">Offen seit</th><th scope="col" class="defect-table-person">Zuständigkeit</th><th scope="col" class="defect-wide">Beschrieb</th><th scope="col" class="defect-wide">Bemerkung</th><th scope="col">Aktion</th></tr></thead>
+      <thead><tr><th scope="col">Status</th><th scope="col">Spielplatz / Gerät</th><th scope="col" class="defect-wide">Geräte-FID</th><th scope="col">Dringlichkeit</th><th scope="col" class="defect-wide">Erfasst am</th><th scope="col" class="defect-wide">Offen seit</th><th scope="col" class="defect-table-person">Zuständigkeit</th><th scope="col" class="defect-wide">Beschrieb</th><th scope="col" class="defect-wide">Bemerkung</th></tr></thead>
       <tbody id="defect-table-body">{% for defect in rows %}{% include "defects_table_row.html" %}{% endfor %}</tbody>
     </table>
   </div>

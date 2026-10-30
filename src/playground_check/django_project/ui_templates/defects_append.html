@@ -1,5 +1,3 @@
-{# Append one well-formed tbody fragment per page. The template protects table
-   markup from the browser's HTML-fragment parser until HTMX processes the OOB swap. #}
 {% if rows %}
 <template>
   <tbody hx-swap-oob="beforeend:#defect-table-body">
