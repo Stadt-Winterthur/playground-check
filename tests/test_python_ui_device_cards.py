@@ -12,6 +12,12 @@ class DeviceCardTemplateTests(unittest.TestCase):
         self.assertIn('/Playdevice/{{ p.fid }}/Picture/', source)
         self.assertIn('loading="lazy"', source)
 
+    def test_defect_description_uses_actual_legacy_field(self):
+        source = (ROOT / 'src/playground_check/django_project/ui_templates/detail.html').read_text()
+        self.assertIn("defect.defectDescription|default:'Mangel'", source)
+        self.assertNotIn('defect.beschreibung', source)
+        self.assertNotIn('defect.description|default:', source)
+
     def test_card_links_keep_reverse_proxy_prefix(self):
         source = (ROOT / 'src/playground_check/django_project/ui_templates/detail.html').read_text()
         for path in ('/__ui/device/edit/', '/__ui/device/photo/', '/__ui/defect/edit/'):

@@ -25,7 +25,7 @@
     {% if p.commentRecommendedYearOfRenovation %}<dt>Sanierungsbemerkung</dt><dd>{{ p.commentRecommendedYearOfRenovation }}</dd>{% endif %}
     {% if p.cannotBeCheckedReason %}<dt>Kontrollhindernis</dt><dd>{{ p.cannotBeCheckedReason }}</dd>{% endif %}
   </dl>
-  {% if p.defects %}<details class="device-defects"><summary>Offene Mängel ({{ p.defects|length }})</summary><ul>{% for defect in p.defects %}<li>{{ defect.description|default:defect.beschreibung|default:'Mangel' }}</li>{% endfor %}</ul></details>{% endif %}
+  {% if p.defects %}<details class="device-defects"><summary>Offene Mängel ({{ p.defects|length }})</summary><ul>{% for defect in p.defects %}<li>{{ defect.defectDescription|default:'Mangel' }}</li>{% endfor %}</ul></details>{% endif %}
   <details class="device-menu"><summary>Spielgerät bearbeiten</summary><div class="device-actions"><a href="{{ prefix }}/__ui/device/edit/?fid={{ p.fid|urlencode }}">Geräteattribute bearbeiten</a><a href="{{ prefix }}/__ui/device/photo/?fid={{ p.fid|urlencode }}">Foto aufnehmen / hochladen</a><a href="{{ prefix }}/__ui/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">Mangel erfassen</a></div></details>
 </article>
 {% endwith %}{% empty %}<p class="empty-state">Keine Spielgeräte vorhanden.</p>{% endfor %}</div>
