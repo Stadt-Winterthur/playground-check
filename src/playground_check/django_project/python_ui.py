@@ -36,7 +36,13 @@ def _prefix(request):
 
 
 def _render(request, template, data=None, *, status=200, partial=False):
-    values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", "local_htmx_available": (Path(__file__).resolve().parents[1] / "static/vendor/htmx.min.js").is_file(), **(data or {})}
+    route = request.path.split("/__ui/", 1)[-1].split("/", 1)[0] if "/__ui/" in request.path else ""
+    nav = {"": "home", "workspace": "home", "assigned": "inspections" if request.GET.get("inspectiontype") else "devices", "detail": "inspections" if request.GET.get("inspectiontype") else "devices", "inspection": "inspections", "defects": "defects", "defect": "defects", "admin": "users", "device": "devices"}.get(route, "")
+    values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", "active_nav": nav, "local_htmx_available": (Path(__file__).resolve().parents[1] / "static/vendor/htmx.min.js").is_file(), **(data or {})}
+    if values.get("private") and "role" not in values:
+        # Role information must be derived from the already validated identity.
+        user = values.get("user")
+        values["role"] = user.get("role") if isinstance(user, dict) else ""
     if partial:
         body = ENGINE.get_template(template).render(Context(values))
     else:

@@ -1,3 +1,27 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{ page_title }}</title><link rel="stylesheet" href="{{ prefix }}/static/css/python-ui.css">
-{% if local_htmx_available %}<script src="{{ prefix }}/static/vendor/htmx.min.js" defer></script>{% endif %}</head><body><header><nav aria-label="Hauptnavigation"><a href="{{ prefix }}/__ui/">Spielplatzkontrolle Winterthur</a><a href="{{ prefix }}/__ui/playgrounds/">Spielplätze</a><a href="{{ prefix }}/__ui/workspace/">Arbeitsbereich</a><a href="{{ prefix }}/__ui/defects/">Mängel</a><a href="{{ prefix }}/__ui/profile/">Profil</a><a href="{{ prefix }}/__ui/push/">Benachrichtigungen</a><a href="{{ prefix }}/__ui/defect/edit/">Mangel erfassen</a><a href="{{ prefix }}/__ui/device/edit/">Spielgeräte</a><a href="{{ prefix }}/__ui/device/photo/">Bilder</a><a href="{{ prefix }}/__ui/document/upload/">Dokumente</a><a href="{{ prefix }}/__ui/admin/users/">Benutzer</a></nav></header><main>{{ body|safe }}</main><footer>Stadt Winterthur · Python-Oberfläche</footer></body></html>
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#b21e2b"><title>{{ page_title }}</title>
+<link rel="stylesheet" href="{{ prefix }}/static/css/python-ui.css">
+{% if local_htmx_available %}<script defer src="{{ prefix }}/static/vendor/htmx.min.js"></script>{% endif %}
+</head><body class="{% if private %}authenticated{% else %}anonymous{% endif %}">
+<a class="skip-link" href="#content">Zum Inhalt springen</a>
+<header class="app-header"><div class="brand"><a href="{{ prefix }}/__ui/" aria-label="Spielplatzkontrolle – Startseite"><span class="brand-mark" aria-hidden="true">W</span><span><strong>Spielplatzkontrolle</strong><small>Stadt Winterthur</small></span></a></div>
+{% if private %}<details class="user-menu"><summary aria-label="Benutzermenü">Konto</summary><div class="menu-popover"><a href="{{ prefix }}/__ui/profile/">Mein Profil</a><a href="{{ prefix }}/__ui/push/">Benachrichtigungen</a></div></details>{% else %}<a class="header-login" href="{{ prefix }}/__ui/login/">Anmelden</a>{% endif %}
+</header>
+<div class="app-frame">
+{% if private %}<aside class="side-navigation" aria-label="Fachnavigation"><nav>
+<a href="{{ prefix }}/__ui/" {% if active_nav == 'home' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span> Willkommen</a>
+<a href="{{ prefix }}/__ui/assigned/" {% if active_nav == 'devices' %}aria-current="page"{% endif %}><span aria-hidden="true">▦</span> Spielgeräte</a>
+<a href="{{ prefix }}/__ui/assigned/?inspectiontype=Visuelle%20Inspektion" {% if active_nav == 'inspections' %}aria-current="page"{% endif %}><span aria-hidden="true">✓</span> Inspektion</a>
+<a href="{{ prefix }}/__ui/defects/" {% if active_nav == 'defects' %}aria-current="page"{% endif %}><span aria-hidden="true">!</span> Mängel</a>
+{% if role == 'administrator' %}<a href="{{ prefix }}/__ui/admin/users/" {% if active_nav == 'users' %}aria-current="page"{% endif %}><span aria-hidden="true">♙</span> Benutzer</a>{% endif %}
+</nav><div class="side-meta"><a href="https://stadt.winterthur.ch/impressum">Impressum</a></div></aside>{% endif %}
+<main id="content" class="app-content">{{ body|safe }}</main>
+</div>
+{% if private %}<nav class="bottom-navigation" aria-label="Mobile Hauptnavigation">
+<a href="{{ prefix }}/__ui/" {% if active_nav == 'home' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span><span>Start</span></a>
+<a href="{{ prefix }}/__ui/assigned/" {% if active_nav == 'devices' %}aria-current="page"{% endif %}><span aria-hidden="true">▦</span><span>Geräte</span></a>
+<a href="{{ prefix }}/__ui/assigned/?inspectiontype=Visuelle%20Inspektion" {% if active_nav == 'inspections' %}aria-current="page"{% endif %}><span aria-hidden="true">✓</span><span>Inspektion</span></a>
+<a href="{{ prefix }}/__ui/defects/" {% if active_nav == 'defects' %}aria-current="page"{% endif %}><span aria-hidden="true">!</span><span>Mängel</span></a>
+</nav>{% endif %}
+</body></html>
