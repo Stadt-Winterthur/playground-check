@@ -1,6 +1,6 @@
 <h1>Pruefbarkeit bei der Kontrolle</h1>
 <p>Spielgeraet FID {{ fid }}. Diese Einstellung gehoert zur Inspektion.</p>
-<form method="post" action="{{ prefix }}/__ui/device/checkability/">
+<form method="post" action="{{ prefix }}/device/checkability/">
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="fid" value="{{ fid }}">
 <p><label><input type="checkbox" name="cannotBeChecked" value="1" {% if properties.cannotBeChecked %}checked{% endif %}> Nicht pruefbar</label></p>
 <p><label>Begruendung, falls nicht pruefbar <textarea name="cannotBeCheckedReason" maxlength="255">{{ properties.cannotBeCheckedReason }}</textarea></label></p>

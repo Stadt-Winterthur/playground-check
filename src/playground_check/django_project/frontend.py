@@ -51,21 +51,21 @@ def frontend(request, path: str = ''):
     redirect_to = None
     defect = re.fullmatch(r'/defect/\d+/(\d+)/?', route, re.IGNORECASE)
     if defect:
-        redirect_to = '/__ui/defect/?' + urlencode({'tid': defect.group(1)})
-    elif route in ('/', '/users', '/users/', '/login', '/login/'):
-        redirect_to = '/__ui/admin/users/' if route.rstrip('/') == '/users' else '/__ui/'
+        redirect_to = '/defect/?' + urlencode({'tid': defect.group(1)})
+    elif route in ('/users', '/users/'):
+        redirect_to = '/admin/users/' if route.rstrip('/') == '/users' else '/'
     elif route.rstrip('/') in ('/defects', '/assigned', '/inspections', '/playdevices', '/playgrounds'):
         redirect_to = {
-            '/defects': '/__ui/defects/',
-            '/assigned': '/__ui/assigned/',
-            '/inspections': '/__ui/assigned/?mode=inspection',
-            '/playdevices': '/__ui/assigned/',
-            '/playgrounds': '/__ui/assigned/',
+            '/defects': '/defects/',
+            '/assigned': '/assigned/',
+            '/inspections': '/assigned/?mode=inspection',
+            '/playdevices': '/assigned/',
+            '/playgrounds': '/assigned/',
         }[route.rstrip('/')]
     else:
         detail = re.fullmatch(r'/deviceattributes/playdevice/(\d+)/?', route, re.IGNORECASE)
         if detail:
-            redirect_to = '/__ui/device/edit/?' + urlencode({'fid': detail.group(1)})
+            redirect_to = '/device/edit/?' + urlencode({'fid': detail.group(1)})
     if redirect_to is not None:
         response = HttpResponseRedirect(prefix + redirect_to)
         response['Cache-Control'] = 'no-store'

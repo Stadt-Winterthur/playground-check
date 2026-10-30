@@ -21,9 +21,9 @@
   {% if p.hasOpenDefects %}<span class="status warning">Offene Mängel</span>{% endif %}
   {% if p.notToBeChecked or p.cannotBeChecked %}<span class="status">Nicht kontrollieren</span>{% endif %}</div>
   <div class="device-photo"><img src="{{ prefix }}/Playdevice/{{ p.fid }}/Picture/" alt="Foto: {{ p.type.description|default:p.type.name|default:'Spielgerät' }}" loading="lazy" decoding="async"></div>
-  <p class="device-photo-action"><a class="secondary-button" href="{{ prefix }}/__ui/device/photo/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Foto ersetzen / aufnehmen</a></p>
+  <p class="device-photo-action"><a class="secondary-button" href="{{ prefix }}/device/photo/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Foto ersetzen / aufnehmen</a></p>
   <details class="device-map"><summary>Karte / Standort</summary>
-    {% if device.geometry.coordinates.0 != None and device.geometry.coordinates.1 != None %}<img class="device-map-image" src="{{ prefix }}/__ui/device/map/?x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}" alt="Kartenausschnitt des Spielgeraets" loading="lazy" decoding="async">
+    {% if device.geometry.coordinates.0 != None and device.geometry.coordinates.1 != None %}<img class="device-map-image" src="{{ prefix }}/device/map/?x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}" alt="Kartenausschnitt des Spielgeraets" loading="lazy" decoding="async">
     <p><a href="https://stadtplan.winterthur.ch/mini?gbapp=portal&amp;topic=Spielplatzkarte&amp;infoactive=1&amp;maponly=1&amp;onlymap=1&amp;scale=200&amp;x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}&amp;back=Hintergrundkarte_LK_AV_Situationsplan" target="_blank" rel="noopener noreferrer">Im Stadtplan anzeigen</a></p>{% else %}<p>Keine Standortkoordinaten vorhanden.</p>{% endif %}
   </details>
   <dl class="device-facts"><dt>Geräte-ID</dt><dd>{{ p.fid }}</dd>
@@ -35,7 +35,7 @@
     {% if p.cannotBeCheckedReason %}<dt>Kontrollhindernis</dt><dd>{{ p.cannotBeCheckedReason }}</dd>{% endif %}
   </dl>
   {% if p.defects %}<details class="device-defects"><summary>Offene Mängel ({{ p.defects|length }})</summary><ul>{% for defect in p.defects %}<li>{{ defect.defectDescription|default:'Mangel' }}</li>{% endfor %}</ul></details>{% endif %}
-  <details class="device-menu"><summary>Spielgerät bearbeiten</summary><div class="device-actions"><a href="{{ prefix }}/__ui/device/edit/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Geräteattribute bearbeiten</a><a href="{{ prefix }}/__ui/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">Mangel erfassen</a></div></details>
+  <details class="device-menu"><summary>Spielgerät bearbeiten</summary><div class="device-actions"><a href="{{ prefix }}/device/edit/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Geräteattribute bearbeiten</a><a href="{{ prefix }}/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">Mangel erfassen</a></div></details>
 </article>
 {% endwith %}{% empty %}<p class="empty-state">Keine Spielgeräte vorhanden.</p>{% endfor %}</div>
   </div>
@@ -71,7 +71,7 @@
           <details class="document-item-actions">
             <summary>Verwalten</summary>
             <div class="document-admin-stack">
-              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-inline-form">
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-inline-form">
                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
                 <input type="hidden" name="action" value="rename">
                 <input type="hidden" name="documentType" value="abnahme">
@@ -81,7 +81,7 @@
                 <label class="field grow"><span>Dokumentname</span><input type="text" name="documentName" value="{{ doc.name }}" maxlength="255" required></label>
                 <button type="submit" class="secondary-button">Umbenennen</button>
               </form>
-              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-delete-form">
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-delete-form">
                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="documentType" value="abnahme">
@@ -100,7 +100,7 @@
       <p class="empty-state compact">Noch keine Abnahmedokumente vorhanden.</p>
       {% endif %}
       {% if is_admin %}
-      <form method="post" action="{{ prefix }}/__ui/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
+      <form method="post" action="{{ prefix }}/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
         <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
         <input type="hidden" name="action" value="upload">
         <input type="hidden" name="documentType" value="abnahme">
@@ -137,7 +137,7 @@
           <details class="document-item-actions">
             <summary>Verwalten</summary>
             <div class="document-admin-stack">
-              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-inline-form">
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-inline-form">
                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
                 <input type="hidden" name="action" value="rename">
                 <input type="hidden" name="documentType" value="zertifikat">
@@ -147,7 +147,7 @@
                 <label class="field grow"><span>Dokumentname</span><input type="text" name="documentName" value="{{ doc.name }}" maxlength="255" required></label>
                 <button type="submit" class="secondary-button">Umbenennen</button>
               </form>
-              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-delete-form">
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-delete-form">
                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="documentType" value="zertifikat">
@@ -166,7 +166,7 @@
       <p class="empty-state compact">Noch keine Zertifikatsdokumente vorhanden.</p>
       {% endif %}
       {% if is_admin %}
-      <form method="post" action="{{ prefix }}/__ui/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
+      <form method="post" action="{{ prefix }}/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
         <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
         <input type="hidden" name="action" value="upload">
         <input type="hidden" name="documentType" value="zertifikat">

@@ -7,4 +7,4 @@
   </div>
   <div id="defect-mobile-list" class="defect-mobile-list" role="list">{% for defect in rows %}{% include "defects_mobile_item.html" %}{% endfor %}</div>
 {% elif page == 1 %}<p class="empty-state">Keine passenden Mängel vorhanden.</p>{% endif %}
-{% if has_next %}<div class="load-more" hx-get="{{ prefix }}/__ui/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;priority={{ priority|urlencode }}&amp;page={{ next }}&amp;append=1" hx-trigger="revealed" hx-swap="outerHTML"><a class="secondary-button" href="{{ prefix }}/__ui/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;priority={{ priority|urlencode }}&amp;page={{ next }}">Weitere Mängel anzeigen</a></div>{% endif %}
+{% if has_next %}<div class="load-more" hx-get="{{ prefix }}/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;priority={{ priority|urlencode }}&amp;page={{ next }}&amp;append=1" hx-trigger="revealed" hx-swap="outerHTML"><a class="secondary-button" href="{{ prefix }}/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;priority={{ priority|urlencode }}&amp;page={{ next }}">Weitere Mängel anzeigen</a></div>{% endif %}

@@ -19,7 +19,7 @@ class DefectGuiTests(unittest.TestCase):
 
     def test_anonymous_does_not_query_database(self):
         with patch.object(self.ui, "require_user", return_value=(None, object())), patch.object(self.ui, "connect") as db:
-            response = self.ui.defects(self.rf.get("/__ui/defects/"))
+            response = self.ui.defects(self.rf.get("/defects/"))
         self.assertEqual(response.status_code, 401)
         db.assert_not_called()
 
@@ -30,12 +30,12 @@ class DefectGuiTests(unittest.TestCase):
         rows = [{"tid": 10, "playground_name": "<script>alert(1)</script>", "description": "Broken", "done_by": None},
                 {"tid": 11, "playground_name": "Other", "description": "Fixed", "done_by": 2}]
         with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)), patch.object(self.ui, "connect", return_value=db), patch("playground_check.remaining_reads_repository.gui_defect_page", side_effect=lambda db, query, state, offset, limit: [r for r in rows if (state == "all" or (r["done_by"] is None) == (state == "open"))][:limit]):
-            response = self.ui.defects(self.rf.get("/__ui/defects/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
+            response = self.ui.defects(self.rf.get("/defects/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"&lt;script&gt;", response.content)
         self.assertNotIn(b"<script>", response.content)
         self.assertNotIn(b"Fixed", response.content)
-        self.assertIn(b"/stadtgruen/spielplatzkontrolle/__ui/defects/", response.content)
+        self.assertIn(b"/stadtgruen/spielplatzkontrolle/defects/", response.content)
 
     def test_partial_response_filters_done(self):
         from unittest.mock import MagicMock
@@ -43,7 +43,7 @@ class DefectGuiTests(unittest.TestCase):
         db.__enter__.return_value = db
         rows = [{"tid": 10, "playground_name": "A", "done_by": None}, {"tid": 11, "playground_name": "B", "done_by": 2}]
         with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)), patch.object(self.ui, "connect", return_value=db), patch("playground_check.remaining_reads_repository.gui_defect_page", side_effect=lambda db, query, state, offset, limit: [r for r in rows if (state == "all" or (r["done_by"] is None) == (state == "open"))][:limit]):
-            response = self.ui.defects(self.rf.get("/__ui/defects/", {"state": "done"}, HTTP_HX_REQUEST="true"))
+            response = self.ui.defects(self.rf.get("/defects/", {"state": "done"}, HTTP_HX_REQUEST="true"))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"TID 11", response.content)
         self.assertNotIn(b"TID 10", response.content)

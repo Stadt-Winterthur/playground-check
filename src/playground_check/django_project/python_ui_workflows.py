@@ -81,7 +81,7 @@ def _detail_redirect(request, name, kind='', *, notice='', error=''):
     if error:
         params['error'] = error[:180]
     response = HttpResponse(status=303)
-    response['Location'] = ui._prefix(request) + '/__ui/detail/?' + urlencode(params) + '#documents'
+    response['Location'] = ui._prefix(request) + '/detail/?' + urlencode(params) + '#documents'
     response['Cache-Control'] = 'no-store'
     return response
 
@@ -101,7 +101,7 @@ def login(request):
     answer = _native(request, account_commands.login, {'mailAddress': email, 'passPhrase': password}, url='/Account/Login/')
     if answer.status_code != 200:
         return ui._render(request, 'gui_login.html', {'csrf_token_value': get_token(request), 'error': 'Anmeldung fehlgeschlagen.'}, status=401)
-    next_url = ui._prefix(request) + '/__ui/workspace/'
+    next_url = ui._prefix(request) + '/workspace/'
     result = HttpResponseRedirect(next_url)
     # The existing account command returns Set-Cookie as an HTTP header.
     # Django's HttpResponse.cookies is NOT populated by response['Set-Cookie'].
@@ -133,12 +133,12 @@ def defect_editor(request):
     fields = [('tid','Mangel-TID (bei bestehendem Mangel)','number'),('playdeviceFid','Spielgerät-FID','number'),
               ('defectDescription','Beschreibung','textarea'), ('priority','Priorität','number'),
               ('responsibleBody','Zuständige Stelle (ID)','number'), ('responsibleUser','Zuständige Person (FID)','number')]
-    if request.method == 'GET': return _page(request, 'Mangel erfassen / bearbeiten', fields, action='/__ui/defect/edit/')
+    if request.method == 'GET': return _page(request, 'Mangel erfassen / bearbeiten', fields, action='/defect/edit/')
     failed = _check_post(request)
     if failed: return failed
     description = (request.POST.get('defectDescription') or '').strip()
     if not description or len(description) > 4000:
-        return _page(request, 'Mangel erfassen / bearbeiten', fields, action='/__ui/defect/edit/', info='Beschreibung erforderlich (max. 4000 Zeichen).', status=400)
+        return _page(request, 'Mangel erfassen / bearbeiten', fields, action='/defect/edit/', info='Beschreibung erforderlich (max. 4000 Zeichen).', status=400)
     payload = {'defectDescription': description}
     for key in ('tid','playdeviceFid','priority','responsibleBody','responsibleUser'):
         value = request.POST.get(key)
@@ -272,7 +272,7 @@ def document_editor(request):
     if error is not None: return error
     fields = [('playgroundId','Spielplatz-FID','number'),('type','Dokumenttyp (Abnahme / Zertifikat)','text'),
               ('name','Dokumentname','text'),('document','PDF-Datei','file')]
-    if request.method == 'GET': return _page(request, 'PDF hochladen', fields, action='/__ui/document/upload/')
+    if request.method == 'GET': return _page(request, 'PDF hochladen', fields, action='/document/upload/')
     failed = _check_post(request, 22000000)
     if failed: return failed
     uploaded = request.FILES.get('document')
@@ -412,7 +412,7 @@ def admin_users(request):
                         or outcome.get('errorMessage')):
                     form_error = 'Benutzer konnte nicht gespeichert werden. Berechtigungen und Eingaben prüfen.'
                 else:
-                    return HttpResponseRedirect(prefix + '/__ui/admin/users/?saved=1')
+                    return HttpResponseRedirect(prefix + '/admin/users/?saved=1')
         status = 400 if form_error else 200
 
     try:
@@ -491,7 +491,7 @@ def playdevice_photo(request):
     # Post/Redirect/Get: refreshing the picture editor never repeats a photo upload.
     name = (request.POST.get('name') or '').strip()[:200]
     kind = (request.POST.get('inspectiontype') or '').strip()[:100]
-    target = '/__ui/detail/' if name else '/__ui/assigned/'
+    target = '/detail/' if name else '/assigned/'
     query = ('?' + urlencode({'name': name, 'inspectiontype': kind})) if name else ''
     redirect = HttpResponse(status=303)
     redirect['Location'] = ui._prefix(request) + target + query

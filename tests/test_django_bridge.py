@@ -57,4 +57,4 @@ class DjangoBridgeTest(unittest.TestCase):
         with patch.object(wsgi, "legacy_settings", replace(wsgi.legacy_settings, base_path="")):
             status, body, _ = self.request("/defect/267566/1772")
         self.assertEqual(status, 302)
-        self.assertEqual(_["Location"], "/__ui/defect/?tid=1772")
+        self.assertEqual(_["Location"], "/defect/?tid=1772")

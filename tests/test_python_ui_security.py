@@ -20,12 +20,11 @@ class InternetFacingUISecurityTests(unittest.TestCase):
 
     def test_every_page_denies_anonymous_before_repository_access(self):
         paths = (
-            ("home", "/__ui/"),
-            ("playgrounds", "/__ui/playgrounds/"),
-            ("workspace", "/__ui/workspace/"),
-            ("assigned_playgrounds", "/__ui/assigned/"),
-            ("playground_detail", "/__ui/detail/?name=Sensitive"),
-            ("defects", "/__ui/defects/"),
+            ("playgrounds", "/playgrounds/"),
+            ("workspace", "/workspace/"),
+            ("assigned_playgrounds", "/assigned/"),
+            ("playground_detail", "/detail/?name=Sensitive"),
+            ("defects", "/defects/"),
         )
         for name, url in paths:
             for partial in (False, True):
@@ -47,14 +46,23 @@ class InternetFacingUISecurityTests(unittest.TestCase):
     def test_authentication_error_fails_closed_without_query(self):
         with patch.object(self.ui, "require_user", side_effect=RuntimeError("secret auth details")), \
              patch.object(self.ui, "connect") as database:
-            response = self.ui.playgrounds(self.rf.get("/__ui/playgrounds/"))
+            response = self.ui.playgrounds(self.rf.get("/playgrounds/"))
         self.assertEqual(response.status_code, 503)
         self.assertNotIn(b"secret auth details", response.content)
         database.assert_not_called()
 
     def test_authenticated_home_is_private_and_prefix_safe(self):
         with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)):
-            response = self.ui.home(self.rf.get("/__ui/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
+            response = self.ui.home(self.rf.get("/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle", HTTP_COOKIE="playground.auth=test"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Cache-Control"], "no-store")
-        self.assertIn(b"/stadtgruen/spielplatzkontrolle/__ui/", response.content)
+        self.assertIn(b"/stadtgruen/spielplatzkontrolle/", response.content)
+
+    def test_public_home_needs_no_credentials_and_no_database(self):
+        with patch.object(self.ui, "require_user") as identity, patch.object(self.ui, "connect") as db:
+            response = self.ui.home(self.rf.get("/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Spielplatzkontrolle", response.content)
+        self.assertIn(b"/stadtgruen/spielplatzkontrolle/login/", response.content)
+        identity.assert_not_called()
+        db.assert_not_called()

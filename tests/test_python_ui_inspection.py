@@ -22,7 +22,7 @@ class InspectionEditorTests(unittest.TestCase):
     def test_anonymous_cannot_access_form_or_post(self):
         for method in ("get", "post"):
             with self.subTest(method=method), patch.object(self.ui, "require_user", return_value=(None, object())), patch.object(self.ui, "playground_by_name_data") as fetch:
-                request = getattr(self.rf, method)("/__ui/inspection/?name=A&inspectiontype=B")
+                request = getattr(self.rf, method)("/inspection/?name=A&inspectiontype=B")
                 if method == "post":
                     # csrf_protect itself rejects POST without a token before reaching auth
                     self.assertEqual(self.ui.inspection_editor(request).status_code, 403)
@@ -32,14 +32,14 @@ class InspectionEditorTests(unittest.TestCase):
 
     def test_get_renders_csrf_and_preserves_proxy_prefix(self):
         with patch.object(self.ui, "require_user", return_value=(self.user, None)), patch.object(self.ui, "playground_only_names_data", return_value=[{"name": "A"}]), patch.object(self.ui, "playground_by_name_data", return_value=self.payload):
-            result = self.ui.inspection_editor(self.rf.get("/__ui/inspection/", {"name": "A", "inspectiontype": self.kind}, SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
+            result = self.ui.inspection_editor(self.rf.get("/inspection/", {"name": "A", "inspectiontype": self.kind}, SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
         self.assertEqual(result.status_code, 200)
         self.assertIn(b'csrfmiddlewaretoken', result.content)
-        self.assertIn(b'/stadtgruen/spielplatzkontrolle/__ui/inspection/', result.content)
+        self.assertIn(b'/stadtgruen/spielplatzkontrolle/inspection/', result.content)
 
     def test_disallowed_role_cannot_query_or_write(self):
         with patch.object(self.ui, "require_user", return_value=({**self.user, "role": "maintenance"}, None)), patch.object(self.ui, "playground_by_name_data") as query:
-            result = self.ui.inspection_editor(self.rf.get("/__ui/inspection/", {"name": "A", "inspectiontype": self.kind}))
+            result = self.ui.inspection_editor(self.rf.get("/inspection/", {"name": "A", "inspectiontype": self.kind}))
         self.assertEqual(result.status_code, 403)
         query.assert_not_called()
 
@@ -48,13 +48,13 @@ class InspectionEditorTests(unittest.TestCase):
         from urllib.parse import urlencode
         from django.http import HttpResponse
         from django.middleware.csrf import get_token
-        csrf_request = self.rf.get('/__ui/inspection/')
+        csrf_request = self.rf.get('/inspection/')
         token = get_token(csrf_request)
         form = {'name': 'A', 'inspectiontype': self.kind, 'inspection_done_42_0': 'on', 'maintenance_done_42_0': 'on',
                 'comment_42_0': 'Geprüft', 'checked_999': 'on', 'confirm': 'yes',
                 'csrfmiddlewaretoken': token}
         # Plain HTML forms use URL-encoded data; RequestFactory defaults to multipart.
-        request = self.rf.post('/__ui/inspection/', urlencode(form),
+        request = self.rf.post('/inspection/', urlencode(form),
                                content_type='application/x-www-form-urlencoded', HTTP_X_CSRFTOKEN=token,
                                HTTP_COOKIE=f'csrftoken={csrf_request.META["CSRF_COOKIE"]}')
         request.META['CSRF_COOKIE'] = csrf_request.META['CSRF_COOKIE']

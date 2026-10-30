@@ -69,7 +69,7 @@ class ApplicationTest(unittest.TestCase):
 
     def test_spa_static_files_and_health_without_database(self):
         status, body, _ = self.request("GET", "/")
-        self.assertEqual(status, 302)
+        self.assertEqual(status, 404)
         status, body, _ = self.request("GET", "/api/health")
         self.assertEqual(body["status"], "ok")
         status, manifest, _ = self.request("GET", "/static/manifest.webmanifest")
@@ -78,7 +78,7 @@ class ApplicationTest(unittest.TestCase):
     def test_defect_deep_link_redirects_to_django(self):
         status, body, captured = self.request("GET", "/defect/267566/1772")
         self.assertEqual(status, 302)
-        self.assertEqual(captured["headers"].get("Location"), "/__ui/defect/?tid=1772")
+        self.assertEqual(captured["headers"].get("Location"), "/defect/?tid=1772")
 
         status, body, _ = self.request("GET", "/defect/not-an-api-route")
         self.assertEqual(status, 404)
@@ -86,8 +86,8 @@ class ApplicationTest(unittest.TestCase):
 
     def test_legacy_frontend_redirects_without_serving_spa(self):
         status, body, captured = self.request("GET", "/")
-        self.assertEqual(status, 302)
-        self.assertEqual(captured["headers"].get("Location"), "/__ui/")
+        self.assertEqual(status, 404)
+        self.assertEqual(body, b"Not found")
 
     def test_document_controls_live_only_in_django_template(self):
         template = (Path(service.__file__).with_name("django_project") / "ui_templates" / "detail.html").read_text(encoding="utf-8")
@@ -359,8 +359,8 @@ class ApplicationTest(unittest.TestCase):
         configured = replace(server_module.settings, base_path="/stadtgruen/spielplatzkontrolle")
         with patch.object(server_module, "settings", configured):
             status, _, captured = self.request("GET", "/stadtgruen/spielplatzkontrolle/")
-            self.assertEqual(status, 302)
-            self.assertEqual(captured["headers"].get("Location"), "/stadtgruen/spielplatzkontrolle/__ui/")
+            self.assertEqual(status, 404)
+            self.assertNotIn("Location", captured["headers"])
 
             status, result, _ = self.request("GET", "/stadtgruen/spielplatzkontrolle/api/health")
             self.assertEqual(status, 200)

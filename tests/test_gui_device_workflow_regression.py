@@ -29,6 +29,6 @@ class GUIWorkflowRegression(unittest.TestCase):
 
     def test_map_lazy_and_city_link(self):
         html = (ROOT / 'ui_templates/detail.html').read_text()
-        self.assertIn('/__ui/device/map/', html)
+        self.assertIn('/device/map/', html)
         self.assertIn('stadtplan.winterthur.ch/mini?', html)
         self.assertIn('loading="lazy"',html)

@@ -1,5 +1,5 @@
 <div class="defect-detail-page">
-  <a class="back-link" href="{{ prefix }}/__ui/defects/">← Zur Mängelübersicht</a>
+  <a class="back-link" href="{{ prefix }}/defects/">← Zur Mängelübersicht</a>
   <header class="defect-detail-header">
     <div><p class="eyebrow">Mängelbearbeitung</p><h1>Mangel {{ tid }}</h1>
       <p class="muted">Spielgerät-FID {{ defect.playdeviceFid }} · TID {{ tid }}{% if defect.dateCreation %} · Erfasst am {{ defect.dateCreation|date:"d.m.Y" }}{% endif %}{% if defect.createdByName %} · {{ defect.createdByName }}{% endif %}</p>
@@ -8,7 +8,7 @@
   </header>
   {% if saved_action %}<p class="notice" role="status">Aktion erfolgreich ausgeführt.</p>{% endif %}
 
-  <form id="defect-edit" method="post" action="{{ prefix }}/__ui/defect/" class="defect-edit-form">
+  <form id="defect-edit" method="post" action="{{ prefix }}/defect/" class="defect-edit-form">
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
     <section class="defect-section defect-description-section" aria-labelledby="defect-description-title">
       <h2 id="defect-description-title">Beschrieb des Mangels</h2>
@@ -60,7 +60,7 @@
   {% if can_respond %}<section class="defect-section" aria-labelledby="defect-decision-title">
     <h2 id="defect-decision-title">Eigene Zuweisung beantworten</h2>
     <p class="muted">Nur die zugewiesene Person kann ihren Auftrag annehmen oder ablehnen.</p>
-    <form method="post" action="{{ prefix }}/__ui/defect/">
+    <form method="post" action="{{ prefix }}/defect/">
       <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
       <label for="assignment-comment">Bemerkung zum Auftrag (optional)</label><textarea id="assignment-comment" name="comment" maxlength="1000" rows="2">{{ defect.assignmentComment }}</textarea>
       <div class="defect-actions"><button type="submit" name="action" value="accept">Auftrag annehmen</button><button type="submit" name="action" value="reject" class="secondary-button">Auftrag ablehnen</button></div>
@@ -72,20 +72,20 @@
   <div class="defect-detail-columns">
     <section class="defect-section" aria-labelledby="defect-photos-title"><h2 id="defect-photos-title">Fotos des Mangels</h2>
       {% if defect.defectPicsTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsTids %}<a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="Mängelfoto {{ forloop.counter }}" loading="lazy"></a>{% endfor %}</div>{% else %}<p class="muted">Noch keine Fotos vorhanden.</p>{% endif %}
-      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/__ui/defect/">
+      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/">
         <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}"><label for="defect-picture-before">Foto hinzufügen (JPEG/PNG, max. 5 MB)</label><input id="defect-picture-before" type="file" name="picture" accept="image/jpeg,image/png" required><button type="submit" name="action" value="photo_before" class="secondary-button">Foto hochladen</button>
       </form>
     </section>
     <section class="defect-section" aria-labelledby="defect-after-title"><h2 id="defect-after-title">Fotos nach Mangelbeseitigung</h2>
       {% if defect.defectPicsAfterFixingTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsAfterFixingTids %}<a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="Foto nach Beseitigung {{ forloop.counter }}" loading="lazy"></a>{% endfor %}</div>{% else %}<p class="muted">Noch keine Fotos vorhanden.</p>{% endif %}
-      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/__ui/defect/">
+      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/">
         <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}"><label for="defect-picture-after">Foto hinzufügen (JPEG/PNG, max. 5 MB)</label><input id="defect-picture-after" type="file" name="picture" accept="image/jpeg,image/png" required><button type="submit" name="action" value="photo_after" class="secondary-button">Foto hochladen</button>
       </form>
     </section>
   </div>
   <section class="defect-section" aria-labelledby="defect-mail-title"><h2 id="defect-mail-title">Infomail</h2>
     {% if defect.infoMailSentAt %}<p>Letzter Versand: {{ defect.infoMailSentAt|date:"d.m.Y H:i" }}{% if defect.infoMailRecipientName %} · {{ defect.infoMailRecipientName }}{% endif %}</p>{% else %}<p class="muted">Noch keine Infomail versendet.</p>{% endif %}
-    <form method="post" action="{{ prefix }}/__ui/defect/"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
+    <form method="post" action="{{ prefix }}/defect/"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="tid" value="{{ tid }}">
       <button type="submit" name="action" value="mail" class="secondary-button" {% if defect.responsibleUserFid < 1 %}disabled{% endif %}>Infomail senden</button>
     </form><p class="muted">Die Infomail wird an die aktuell zugewiesene Person gesendet. Nicht gespeicherte Änderungen werden dabei nicht übernommen.</p>
   </section>

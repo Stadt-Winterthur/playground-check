@@ -1,7 +1,8 @@
 <div class="page-heading"><p class="eyebrow">Willkommen</p><h1>Spielplatzkontrolle</h1><p>Wähle einen Arbeitsbereich. Die Funktionen entsprechen den Arbeitsabläufen der bisherigen Anwendung.</p></div>
-<div class="action-grid"><a class="action-card" href="{{ prefix }}/__ui/assigned/"><span class="action-icon" aria-hidden="true">▦</span><strong>Spielgeräte</strong><span>Spielplatz suchen, Geräte anzeigen und bearbeiten</span></a>
-<a class="action-card" href="{{ prefix }}/__ui/assigned/?mode=inspection"><span class="action-icon" aria-hidden="true">✓</span><strong>Inspektion</strong><span>Inspektionsart und Spielplatz wählen, Geräte prüfen</span></a>
-<a class="action-card" href="{{ prefix }}/__ui/defects/"><span class="action-icon" aria-hidden="true">!</span><strong>Mängel</strong><span>Offene Mängel prüfen und bearbeiten</span></a>
-<a class="action-card" href="{{ prefix }}/__ui/profile/"><span class="action-icon" aria-hidden="true">◉</span><strong>Mein Konto</strong><span>Profil und Benachrichtigungen</span></a></div>
+{% if not private %}<p><a class="primary-button" href="{{ prefix }}/login/">Anmelden, um Spielgeräte und Inspektionen zu bearbeiten</a></p>{% endif %}
+<div class="action-grid"><a class="action-card" href="{{ prefix }}/assigned/"><span class="action-icon" aria-hidden="true">▦</span><strong>Spielgeräte</strong><span>Spielplatz suchen, Geräte anzeigen und bearbeiten</span></a>
+<a class="action-card" href="{{ prefix }}/assigned/?mode=inspection"><span class="action-icon" aria-hidden="true">✓</span><strong>Inspektion</strong><span>Inspektionsart und Spielplatz wählen, Geräte prüfen</span></a>
+<a class="action-card" href="{{ prefix }}/defects/"><span class="action-icon" aria-hidden="true">!</span><strong>Mängel</strong><span>Offene Mängel prüfen und bearbeiten</span></a>
+<a class="action-card" href="{{ prefix }}/profile/"><span class="action-icon" aria-hidden="true">◉</span><strong>Mein Konto</strong><span>Profil und Benachrichtigungen</span></a></div>
 
-<nav class="secondary-links" aria-label="Weitere Ansichten"><a href="{{ prefix }}/__ui/playgrounds/">Spielplatzverzeichnis</a><a href="{{ prefix }}/__ui/workspace/">Arbeitsbereich</a></nav>
+<nav class="secondary-links" aria-label="Weitere Ansichten"><a href="{{ prefix }}/playgrounds/">Spielplatzverzeichnis</a><a href="{{ prefix }}/workspace/">Arbeitsbereich</a></nav>

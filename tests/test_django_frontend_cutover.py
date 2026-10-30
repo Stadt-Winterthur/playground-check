@@ -30,7 +30,7 @@ class DjangoFrontendCutover(unittest.TestCase):
     def test_legacy_defect_bookmark_redirects_to_native_ui(self):
         status, headers, body = self.call("/defect/267566/1772")
         self.assertEqual(status, 302)
-        self.assertIn("/__ui/defect/?tid=1772", headers["Location"])
+        self.assertIn("/defect/?tid=1772", headers["Location"])
 
     def test_swagger_and_static(self):
         for route in ("/swagger", "/swagger/index.html", "/swagger/v1/swagger.json",
@@ -44,6 +44,8 @@ class DjangoFrontendCutover(unittest.TestCase):
         self.assertEqual(self.call("/a-client-route")[0], 404)
 
     def test_root_opens_native_ui_and_legacy_assets_gone(self):
-        self.assertEqual(self.call("/")[1]["Location"], "/__ui/")
+        self.assertEqual(self.call("/")[0], 200)
+        self.assertIn(b"Spielplatzkontrolle", self.call("/")[2])
+        self.assertEqual(self.call("/__ui/")[0], 404)
         self.assertEqual(self.call("/static/js/app.js")[0], 404)
         self.assertEqual(self.call("/static/css/app.css")[0], 404)

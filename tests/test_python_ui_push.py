@@ -21,17 +21,17 @@ class PushGuiTest(unittest.TestCase):
     def test_unauthenticated_push_settings_denied_before_any_db_query(self):
         with patch.object(self.ui, 'require_user', return_value=(None, object())), \
              patch.object(self.ui, 'connect') as database:
-            response = self.ui.push_settings(self.rf.get('/__ui/push/'))
+            response = self.ui.push_settings(self.rf.get('/push/'))
         self.assertEqual(response.status_code, 401)
         database.assert_not_called()
 
     def test_private_push_page_scopes_script_and_has_no_store(self):
         with patch.object(self.ui, 'require_user', return_value=({'fid': 1}, None)):
-            response = self.ui.push_settings(self.rf.get('/__ui/push/', SCRIPT_NAME='/stadtgruen/spielplatzkontrolle'))
+            response = self.ui.push_settings(self.rf.get('/push/', SCRIPT_NAME='/stadtgruen/spielplatzkontrolle'))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'/stadtgruen/spielplatzkontrolle/static/js/python-ui-push.js', response.content)
         self.assertEqual(response['Cache-Control'], 'no-store')
 
     def test_push_settings_does_not_accept_post(self):
-        response = self.ui.push_settings(self.rf.post('/__ui/push/'))
+        response = self.ui.push_settings(self.rf.post('/push/'))
         self.assertEqual(response.status_code, 405)

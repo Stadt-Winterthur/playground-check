@@ -32,7 +32,7 @@ def _prefix(request):
 
 
 def _render(request, template, data=None, *, status=200, partial=False):
-    route = request.path.split("/__ui/", 1)[-1].split("/", 1)[0] if "/__ui/" in request.path else ""
+    route = request.path.strip("/").split("/", 1)[0]
     nav = {"": "home", "workspace": "inspections", "assigned": "inspections" if request.GET.get("inspectiontype") or request.GET.get("mode") == "inspection" else "devices", "detail": "inspections" if request.GET.get("inspectiontype") else "devices", "inspection": "inspections", "defects": "defects", "defect": "defects", "admin": "users", "device": "devices"}.get(route, "")
     values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", "active_nav": nav, "local_htmx_available": (Path(__file__).resolve().parents[1] / "static/vendor/htmx.min.js").is_file(), **(data or {})}
     if values.get("private") and "role" not in values:
@@ -87,9 +87,17 @@ def ui_login_required(view):
 
 
 @require_GET
-@ui_login_required
 def home(request):
-    return _render(request, "home.html", {"private": True})
+    """Public welcome page; account data and workflows remain protected."""
+    user = None
+    if request.COOKIES.get(settings.auth_cookie_name):
+        try:
+            user, error = _identity(request)
+            if error:
+                user = None
+        except Exception:
+            LOGGER.exception("Authentication unavailable on public homepage")
+    return _render(request, "home.html", {"private": bool(user), "user": user})
 
 
 @require_GET
@@ -178,7 +186,7 @@ def playground_detail(request):
         from urllib.parse import urlencode
         # Inspection links must enter the criterion editor, not the device/document view.
         # The destination revalidates assignment, type and device eligibility.
-        return HttpResponseRedirect(_prefix(request) + "/__ui/inspection/?" + urlencode({"name": name, "inspectiontype": kind}))
+        return HttpResponseRedirect(_prefix(request) + "/inspection/?" + urlencode({"name": name, "inspectiontype": kind}))
     try:
         payload = playground_by_name_data({"name": name, "inspectiontype": kind, "withdefects": "true", "withinspections": "true"})
     except LookupError:
@@ -531,7 +539,7 @@ def defect_detail(request):
                 answer = {}
             if isinstance(answer, dict) and answer.get("errorMessage"):
                 return fail("Die Änderung wurde abgelehnt. Bitte Angaben und Berechtigung prüfen.", 409)
-            return HttpResponseRedirect(_prefix(request) + f"/__ui/defect/?tid={tid}&saved={action}")
+            return HttpResponseRedirect(_prefix(request) + f"/defect/?tid={tid}&saved={action}")
         except (ValueError, TypeError):
             LOGGER.exception("Defect detail input processing failed: tid=%s action=%s", tid, action)
             return fail("Ungültige Eingabe.")

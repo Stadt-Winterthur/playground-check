@@ -17,7 +17,7 @@ class PythonUITest(unittest.TestCase):
 
     def test_preview_home(self):
         with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)):
-            result = self.ui.home(self.rf.get('/__ui/'))
+            result = self.ui.home(self.rf.get('/'))
         self.assertEqual(result.status_code, 200)
         self.assertIn('frame-ancestors', result['Content-Security-Policy'])
 
@@ -28,25 +28,25 @@ class PythonUITest(unittest.TestCase):
             def execute(self, *_): return self
             def fetchall(self): return [dict(name='<script>',street_name='A&B',house_no='1')]
         with patch.object(self.ui, 'require_user', return_value=({'fid': 1}, None)), patch.object(self.ui, 'connect', return_value=DB()):
-            result = self.ui.playgrounds(self.rf.get('/__ui/playgrounds/'))
+            result = self.ui.playgrounds(self.rf.get('/playgrounds/'))
         self.assertNotIn(b'<script>',result.content)
         self.assertIn(b'&lt;script&gt;',result.content)
 
     def test_db_failure_does_not_expose_exception(self):
         with patch.object(self.ui, 'require_user', return_value=({'fid': 1}, None)), patch.object(self.ui,'connect',side_effect=RuntimeError('secret')):
-            result = self.ui.playgrounds(self.rf.get('/__ui/playgrounds/'))
+            result = self.ui.playgrounds(self.rf.get('/playgrounds/'))
         self.assertEqual(result.status_code,503)
         self.assertNotIn(b'secret',result.content)
 
     def test_reverse_proxy_links_and_css(self):
-        request = self.rf.get('/__ui/', **{'SCRIPT_NAME': '/stadtgruen/spielplatzkontrolle'})
+        request = self.rf.get('/', **{'SCRIPT_NAME': '/stadtgruen/spielplatzkontrolle'})
         with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)):
             response = self.ui.home(request)
         html = response.content.decode('utf-8')
         prefix = '/stadtgruen/spielplatzkontrolle'
         self.assertIn(f'href="{prefix}/static/css/python-ui.css"', html)
-        self.assertIn(f'href="{prefix}/__ui/"', html)
-        self.assertIn(f'href="{prefix}/__ui/playgrounds/"', html)
+        self.assertIn(f'href="{prefix}/"', html)
+        self.assertIn(f'href="{prefix}/playgrounds/"', html)
 
     def test_reverse_proxy_search_form(self):
         class DB:
@@ -54,8 +54,8 @@ class PythonUITest(unittest.TestCase):
             def __exit__(self, *args): return False
             def execute(self, *_): return self
             def fetchall(self): return []
-        request = self.rf.get('/__ui/playgrounds/', **{'SCRIPT_NAME': '/stadtgruen/spielplatzkontrolle'})
+        request = self.rf.get('/playgrounds/', **{'SCRIPT_NAME': '/stadtgruen/spielplatzkontrolle'})
         with patch.object(self.ui, 'require_user', return_value=({'fid': 1}, None)), patch.object(self.ui, 'connect', return_value=DB()):
             response = self.ui.playgrounds(request)
         html = response.content.decode('utf-8')
-        self.assertIn('action="/stadtgruen/spielplatzkontrolle/__ui/playgrounds/"', html)
+        self.assertIn('action="/stadtgruen/spielplatzkontrolle/playgrounds/"', html)

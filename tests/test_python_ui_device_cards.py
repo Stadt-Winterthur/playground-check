@@ -20,7 +20,7 @@ class DeviceCardTemplateTests(unittest.TestCase):
 
     def test_card_links_keep_reverse_proxy_prefix(self):
         source = (ROOT / 'src/playground_check/django_project/ui_templates/detail.html').read_text()
-        for path in ('/__ui/device/edit/', '/__ui/device/photo/', '/__ui/defect/edit/'):
+        for path in ('/device/edit/', '/device/photo/', '/defect/edit/'):
             self.assertIn('{{ prefix }}' + path, source)
 
 if __name__ == '__main__':

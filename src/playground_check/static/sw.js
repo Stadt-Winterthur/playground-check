@@ -26,9 +26,9 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const data = event.notification.data || {};
-  let path = '/__ui/defects/';
-  if (data.defectTid) path = '/__ui/defect/?tid=' + encodeURIComponent(data.defectTid);
-  else if (typeof data.url === 'string' && data.url.startsWith('/__ui/')) path = data.url;
+  let path = '/defects/';
+  if (data.defectTid) path = '/defect/?tid=' + encodeURIComponent(data.defectTid);
+  else if (typeof data.url === 'string' && data.url.startsWith('/') && !data.url.startsWith('//')) path = data.url;
   const target = new URL(scoped(path), self.location.origin).href;
   event.waitUntil(clients.matchAll({type: 'window', includeUncontrolled: true}).then(async all => {
     if (all.length) {

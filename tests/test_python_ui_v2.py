@@ -20,22 +20,22 @@ class PythonUIV2Tests(unittest.TestCase):
     def test_unidentified_user_never_queries_private_records(self):
         with patch.object(self.ui, "require_user", return_value=(None, object())), \
              patch.object(self.ui, "playground_only_names_data") as fetch:
-            response = self.ui.assigned_playgrounds(self.rf.get("/__ui/assigned/"))
+            response = self.ui.assigned_playgrounds(self.rf.get("/assigned/"))
         self.assertEqual(response.status_code, 401)
         fetch.assert_not_called()
 
     def test_reverse_proxy_navigation(self):
         with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)):
-            response = self.ui.home(self.rf.get("/__ui/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
+            response = self.ui.home(self.rf.get("/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"/stadtgruen/spielplatzkontrolle/__ui/workspace/", response.content)
+        self.assertIn(b"/stadtgruen/spielplatzkontrolle/workspace/", response.content)
 
     def test_authenticated_lookup_escapes_names(self):
         db = MagicMock()
         with patch.object(self.ui, "require_user", return_value=({"mailAddress": "a@example.ch"}, None)), \
              patch.object(self.ui, "connect", return_value=db), \
              patch("playground_check.remaining_reads_repository.gui_playground_page", return_value=[{"name": "<script>alert(1)</script>", "has_open": False}]):
-            response = self.ui.assigned_playgrounds(self.rf.get("/__ui/assigned/"))
+            response = self.ui.assigned_playgrounds(self.rf.get("/assigned/"))
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"<script>", response.content)
         self.assertIn(b"&lt;script&gt;", response.content)
@@ -45,7 +45,7 @@ class PythonUIV2Tests(unittest.TestCase):
         with patch.object(self.ui, "require_user", return_value=({"mailAddress": "a@example.ch"}, None)), \
              patch.object(self.ui, "connect", return_value=db), \
              patch("playground_check.remaining_reads_repository.gui_playground_page", return_value=[]) as fetch:
-            response = self.ui.assigned_playgrounds(self.rf.get("/__ui/assigned/", {"q":"a"*1000, "inspectiontype":"b"*500}))
+            response = self.ui.assigned_playgrounds(self.rf.get("/assigned/", {"q":"a"*1000, "inspectiontype":"b"*500}))
         self.assertEqual(response.status_code, 200)
         self.assertLessEqual(len(fetch.call_args.args[2]), 100)  # inspection_type
         self.assertLessEqual(len(fetch.call_args.args[3]), 120)  # query

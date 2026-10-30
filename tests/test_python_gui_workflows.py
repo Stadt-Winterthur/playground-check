@@ -11,5 +11,5 @@ class GUIWorkflowStructureTests(unittest.TestCase):
         self.assertIn('document_commands.create_document', text)
     def test_routes_declared(self):
         text = (ROOT / 'urls.py').read_text()
-        for path in ('__ui/login/', '__ui/defect/edit/', '__ui/device/edit/', '__ui/document/upload/', '__ui/admin/users/'):
+        for path in ('path("login/"', 'path("defect/edit/"', 'path("device/edit/"', 'path("document/upload/"', 'path("admin/users/"'):
             self.assertIn(path, text)

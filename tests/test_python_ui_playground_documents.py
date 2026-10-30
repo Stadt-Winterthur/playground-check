@@ -32,7 +32,7 @@ class PlaygroundDocumentUITests(unittest.TestCase):
         }
 
     def test_detail_view_replaces_old_document_box_and_hides_defect_overview_button(self):
-        request = self.rf.get('/__ui/detail/?name=Alpenblick%20Anlage')
+        request = self.rf.get('/detail/?name=Alpenblick%20Anlage')
         with patch.object(self.ui, '_private', return_value=({'role': 'administrator'}, None)), \
              patch.object(self.ui, 'playground_by_name_data', return_value=self.payload):
             response = self.ui.playground_detail(request)
@@ -40,12 +40,12 @@ class PlaygroundDocumentUITests(unittest.TestCase):
         content = response.content.decode('utf-8')
         self.assertNotIn('Mängelübersicht', content)
         self.assertIn('Abnahmen und Zertifikate', content)
-        self.assertIn('/__ui/detail/documents/', content)
+        self.assertIn('/detail/documents/', content)
         self.assertIn('Weiteres Dokument hochladen', content)
         self.assertIn('Verwalten', content)
 
     def test_non_admin_sees_documents_without_management_forms(self):
-        request = self.rf.get('/__ui/detail/?name=Alpenblick%20Anlage')
+        request = self.rf.get('/detail/?name=Alpenblick%20Anlage')
         with patch.object(self.ui, '_private', return_value=({'role': 'inspector'}, None)), \
              patch.object(self.ui, 'playground_by_name_data', return_value=self.payload):
             response = self.ui.playground_detail(request)
@@ -57,7 +57,7 @@ class PlaygroundDocumentUITests(unittest.TestCase):
 
     def test_upload_action_redirects_back_to_detail_with_notice(self):
         upload = SimpleUploadedFile('abnahme.pdf', b'%PDF-1.4\n%', content_type='application/pdf')
-        request = self.rf.post('/__ui/detail/documents/', {
+        request = self.rf.post('/detail/documents/', {
             'action': 'upload',
             'documentType': 'abnahme',
             'playgroundId': '17',
@@ -73,7 +73,7 @@ class PlaygroundDocumentUITests(unittest.TestCase):
              patch.object(self.workflows, '_native', return_value=api_response) as native:
             response = self.workflows.playground_document_action(request)
         self.assertEqual(response.status_code, 303)
-        self.assertIn('/__ui/detail/?name=Alpenblick+Anlage&tab=documents&inspectiontype=Visuelle+Inspektion&notice=', response['Location'])
+        self.assertIn('/detail/?name=Alpenblick+Anlage&tab=documents&inspectiontype=Visuelle+Inspektion&notice=', response['Location'])
         payload = native.call_args.args[2]
         self.assertEqual(payload['playgroundId'], 17)
         self.assertEqual(payload['type'], 'abnahme')
@@ -81,7 +81,7 @@ class PlaygroundDocumentUITests(unittest.TestCase):
         self.assertTrue(payload['contentBase64'])
 
     def test_rename_action_propagates_document_context(self):
-        request = self.rf.post('/__ui/detail/documents/', {
+        request = self.rf.post('/detail/documents/', {
             'action': 'rename',
             'documentType': 'zertifikat',
             'documentFid': '46',

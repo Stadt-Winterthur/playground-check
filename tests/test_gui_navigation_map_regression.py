@@ -10,7 +10,7 @@ from playground_check.django_project import python_ui, python_ui_workflows
 class NavigationMapRegression(unittest.TestCase):
     def test_general_detail_never_shows_inspection_start(self):
         factory = RequestFactory()
-        req = factory.get('/__ui/detail/?name=Test')
+        req = factory.get('/detail/?name=Test')
         payload = {'name': 'Test', 'playdevices': [], 'inspectionTypeOptions': ['Visuelle Inspektion (VI)']}
         with patch.object(python_ui, '_private', return_value=({'role': 'inspector', 'mailAddress': 'x@y.ch'}, None)), \
              patch.object(python_ui, 'playground_by_name_data', return_value=payload), \
@@ -22,7 +22,7 @@ class NavigationMapRegression(unittest.TestCase):
 
     def test_only_assigned_inspection_type_has_start(self):
         factory = RequestFactory()
-        req = factory.get('/__ui/detail/?name=Test&inspectiontype=Visuelle%20Inspektion')
+        req = factory.get('/detail/?name=Test&inspectiontype=Visuelle%20Inspektion')
         payload = {'name': 'Test', 'playdevices': [], 'inspectionTypeOptions': ['Visuelle Inspektion (VI)']}
         with patch.object(python_ui, '_private', return_value=({'role': 'inspector'}, None)), \
              patch.object(python_ui, 'playground_by_name_data', return_value=payload), \
@@ -31,7 +31,7 @@ class NavigationMapRegression(unittest.TestCase):
         self.assertNotIn(b'Inspektion starten', result.content)
 
     def test_wrong_wms_data_returns_gateway_error_not_not_found(self):
-        req = RequestFactory().get('/__ui/device/map/?x=2700212&y=1262696')
+        req = RequestFactory().get('/device/map/?x=2700212&y=1262696')
         with patch.object(python_ui_workflows, '_guard', return_value=({'role': 'inspector'}, None)), \
              patch('playground_check.map_image_queries.map_image_base64', return_value='PGh0bWw+NDAzPC9odG1sPg=='):
             res = python_ui_workflows.playdevice_map(req)

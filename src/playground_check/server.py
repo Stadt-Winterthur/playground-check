@@ -190,17 +190,15 @@ class Application:
         defect = re.fullmatch(r"/defect/\d+/(\d+)/?", request.path, re.IGNORECASE)
         destination = None
         if defect:
-            destination = f"/__ui/defect/?tid={defect.group(1)}"
-        elif request.path in ("/", "/login", "/login/"):
-            destination = "/__ui/"
+            destination = f"/defect/?tid={defect.group(1)}"
         elif request.path.rstrip("/") == "/users":
-            destination = "/__ui/admin/users/"
+            destination = "/admin/users/"
         elif request.path.rstrip("/") == "/defects":
-            destination = "/__ui/defects/"
+            destination = "/defects/"
         elif request.path.rstrip("/") in ("/assigned", "/playdevices", "/playgrounds"):
-            destination = "/__ui/assigned/"
+            destination = "/assigned/"
         elif request.path.rstrip("/") == "/inspections":
-            destination = "/__ui/assigned/?mode=inspection"
+            destination = "/assigned/?mode=inspection"
         if destination is None:
             return Response.text("Not found", 404)
         response = Response.text("", 302)

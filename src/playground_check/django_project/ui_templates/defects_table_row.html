@@ -1,6 +1,6 @@
       <tr class="{% if defect.assignment_overdue %}defect-critical{% endif %}">
         <td><span class="defect-chip">{% if defect.done_by %}Erledigt{% else %}Offen{% endif %}</span>{% if defect.assignment_overdue %}<span class="defect-chip danger">24 h überschritten</span>{% endif %}</td>
-        <td><strong>{{ defect.playground_name|default:"Spielplatz unbekannt" }}</strong><span class="defect-secondary"><a class="defect-device-link" href="{{ prefix }}/__ui/defect/?tid={{ defect.tid|urlencode }}">{{ defect.playdevice_type|default:"Spielgerät" }}</a> · TID {{ defect.tid }}</span></td>
+        <td><strong>{{ defect.playground_name|default:"Spielplatz unbekannt" }}</strong><span class="defect-secondary"><a class="defect-device-link" href="{{ prefix }}/defect/?tid={{ defect.tid|urlencode }}">{{ defect.playdevice_type|default:"Spielgerät" }}</a> · TID {{ defect.tid }}</span></td>
         <td class="defect-wide">{{ defect.playdevice_fid|default:"–" }}</td>
         <td>{% if defect.priority == 1 %}A (sofort){% elif defect.priority == 2 %}B (mittelfristig){% elif defect.priority == 3 %}C (im Folgejahr beurteilen){% else %}–{% endif %}</td>
         <td class="defect-wide">{{ defect.date_creation|date:"d.m.Y"|default:"–" }}</td>

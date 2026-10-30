@@ -18,17 +18,17 @@ class ExtendedGUIAuthTests(unittest.TestCase):
 
     def test_new_pages_deny_anonymous(self):
         with patch.object(self.ui, "require_user", return_value=(None, object())), patch.object(self.ui, "connect") as db:
-            self.assertEqual(self.ui.my_profile(self.rf.get("/__ui/profile/")).status_code, 401)
-            self.assertEqual(self.ui.defect_detail(self.rf.get("/__ui/defect/?tid=23")).status_code, 401)
+            self.assertEqual(self.ui.my_profile(self.rf.get("/profile/")).status_code, 401)
+            self.assertEqual(self.ui.defect_detail(self.rf.get("/defect/?tid=23")).status_code, 401)
             db.assert_not_called()
 
     def test_invalid_tid_rejected_before_database(self):
         with patch.object(self.ui, "require_user", return_value=({"role": "inspector"}, None)), patch.object(self.ui, "connect") as db:
-            self.assertEqual(self.ui.defect_detail(self.rf.get("/__ui/defect/?tid=not-an-integer")).status_code, 400)
+            self.assertEqual(self.ui.defect_detail(self.rf.get("/defect/?tid=not-an-integer")).status_code, 400)
             db.assert_not_called()
 
     def test_profile_does_not_expose_credentials(self):
         with patch.object(self.ui, "require_user", return_value=({"name": "Test", "mailAddress": "t@example.ch", "role": "inspector", "password": "secret-token"}, None)):
-            response = self.ui.my_profile(self.rf.get("/__ui/profile/"))
+            response = self.ui.my_profile(self.rf.get("/profile/"))
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"secret-token", response.content)

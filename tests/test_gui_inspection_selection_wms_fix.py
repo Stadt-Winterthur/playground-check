@@ -16,7 +16,7 @@ class InspectionSelectionWMSFixTests(unittest.TestCase):
             if len(calls) == 1:
                 return base64.b64encode(b"403 Forbidden").decode()
             return base64.b64encode(png).decode()
-        request = RequestFactory().get("/__ui/device/map/?x=2700212&y=1262696")
+        request = RequestFactory().get("/device/map/?x=2700212&y=1262696")
         with patch.object(workflows, "_guard", return_value=({"role": "inspector"}, None)), \
              patch.object(workflows, "settings", SimpleNamespace(wms_url="http://stadtplantest.winterthur.ch/wms/")), \
              patch("playground_check.map_image_queries.map_image_base64", side_effect=fetch):
