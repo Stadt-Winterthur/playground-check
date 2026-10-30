@@ -1,0 +1,24 @@
+<div class="page-heading"><p class="eyebrow">Administration</p><h1>Benutzerverwaltung</h1><p>Benutzer freischalten, deaktivieren und bearbeiten.</p></div>
+{% if saved %}<p class="admin-notice" role="status">Benutzeränderungen erfolgreich gespeichert.</p>{% endif %}
+{% if form_error %}<p class="admin-error" role="alert">{{ form_error }}</p>{% endif %}
+{% if selected %}
+<section class="admin-editor" aria-labelledby="admin-edit-heading">
+  <h2 id="admin-edit-heading">{{ selected.first_name }} {{ selected.last_name }} bearbeiten</h2>
+  <form method="post" action="{{ prefix }}/__ui/admin/users/" class="admin-form">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="email" value="{{ selected.email }}"><input type="hidden" name="isNew" value="{% if selected.is_new %}1{% else %}0{% endif %}">
+    <div class="admin-fields"><div class="field"><label for="admin-first">Vorname</label><input required maxlength="100" id="admin-first" name="firstName" value="{{ selected.first_name|default:'' }}"></div>
+    <div class="field"><label for="admin-last">Nachname</label><input required maxlength="100" id="admin-last" name="lastName" value="{{ selected.last_name|default:'' }}"></div>
+    <div class="field"><label>E-Mail-Adresse</label><output>{{ selected.email }}</output></div>
+    <div class="field"><label for="admin-role">Rolle</label><select name="role" id="admin-role" required>{% for value,label in roles %}<option value="{{ value }}" {% if selected.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="admin-resp">Zuständigkeit</label><select name="responsibility" id="admin-resp"><option value="">Keine</option>{% for item in responsibilities %}<option value="{{ item }}" {% if selected.responsibility == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div></div>
+    <label class="admin-checkbox"><input type="checkbox" name="active" {% if selected.active %}checked{% endif %}> Benutzer aktiv</label>
+    <p class="muted">Der letzte aktive Administrator kann nicht deaktiviert oder seiner Administratorrolle enthoben werden.</p>
+    <div class="admin-actions"><button type="submit" class="primary-button">Änderungen speichern</button><a class="secondary-button" href="{{ prefix }}/__ui/admin/users/">Abbrechen</a></div>
+  </form>
+</section>
+{% endif %}
+<section aria-labelledby="admin-list-heading"><div class="admin-list-heading"><h2 id="admin-list-heading">Benutzerübersicht</h2><span class="muted">{{ rows|length }} angezeigt · {{ total }} insgesamt</span></div>
+<form method="get" action="{{ prefix }}/__ui/admin/users/" class="filter-panel admin-filters" role="search"><div class="field grow"><label for="admin-search">Suche</label><input id="admin-search" type="search" name="q" value="{{ query }}" maxlength="100" placeholder="Name, E-Mail, Rolle …"></div><label class="admin-checkbox"><input type="checkbox" name="inactive" value="1" {% if show_inactive %}checked{% endif %}> Inaktive Benutzer einblenden</label><button type="submit" class="primary-button">Filtern</button></form>
+{% if rows %}<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th scope="col">Name</th><th scope="col">E-Mail</th><th scope="col">Rolle</th><th scope="col">Zuständigkeit</th><th scope="col">Aktiv</th><th scope="col">Bearbeiten</th></tr></thead><tbody>{% for record in rows %}<tr><td><strong>{{ record.first_name }} {{ record.last_name }}</strong></td><td>{{ record.email }}</td><td>{% if record.role == 'administrator' %}Administrator{% elif record.role == 'inspector' %}Kontrolleur{% elif record.role == 'maintenance' %}Unterhalt{% else %}{{ record.role }}{% endif %}</td><td>{{ record.responsibility|default:'–' }}</td><td>{% if record.active %}Ja{% else %}Nein{% endif %}</td><td><a href="{{ prefix }}/__ui/admin/users/?email={{ record.email|urlencode }}" aria-label="{{ record.first_name }} {{ record.last_name }} bearbeiten">Bearbeiten</a></td></tr>{% endfor %}</tbody></table></div>
+<div class="admin-mobile-list">{% for record in rows %}<article class="admin-user-card"><div class="admin-user-head"><strong>{{ record.first_name }} {{ record.last_name }}</strong><span class="status {% if not record.active %}warning{% endif %}">{% if record.active %}Aktiv{% else %}Inaktiv{% endif %}</span></div><p class="muted">{{ record.email }}</p><p>{% if record.role == 'administrator' %}Administrator{% elif record.role == 'inspector' %}Kontrolleur{% else %}Unterhalt{% endif %}{% if record.responsibility %} · {{ record.responsibility }}{% endif %}</p><a href="{{ prefix }}/__ui/admin/users/?email={{ record.email|urlencode }}">Benutzer bearbeiten</a></article>{% endfor %}</div>
+{% else %}<p class="empty-state">Keine passenden Benutzer gefunden.</p>{% endif %}</section>

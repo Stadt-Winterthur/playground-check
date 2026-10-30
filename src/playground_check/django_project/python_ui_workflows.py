@@ -268,22 +268,84 @@ def document_editor(request):
 
 
 @csrf_protect
-@require_http_methods(['GET','POST'])
+@require_http_methods(['GET', 'POST'])
 def admin_users(request):
+    """Administrator-only native user overview and edit flow."""
+    from playground_check.db import connect
+    from playground_check import user_repository, domain_support
+
     user, error = _guard(request, {'administrator'})
-    if error is not None: return error
-    fields = [('mailAddress','E-Mail-Adresse','email'),('firstName','Vorname','text'),('lastName','Nachname','text'),
-              ('role','Rolle','text'),('active','Aktiv (1/0)','number')]
-    if request.method == 'GET': return _page(request, 'Benutzer verwalten', fields, action='/__ui/admin/users/')
-    failed = _check_post(request)
-    if failed: return failed
-    email = (request.POST.get('mailAddress') or '').strip().lower()
-    if '@' not in email or len(email)>255:
-        return ui._render(request, 'error.html', {'message':'Ungültige E-Mail.', 'private':True}, status=400)
-    payload = {'mailAddress':email,'firstName':request.POST.get('firstName','')[:100],
-               'lastName':request.POST.get('lastName','')[:100],'role':request.POST.get('role','')[:40],
-               'active':request.POST.get('active')=='1'}
-    return _outcome(request, _native(request, account_commands.update_user, payload, method='put', url='/Account/Users/'), 'Benutzeränderung verarbeitet.')
+    if error is not None:
+        return error
+    prefix = ui._prefix(request)
+    email = ((request.POST if request.method == 'POST' else request.GET).get('email') or '').strip().lower()[:255]
+    show_inactive = request.GET.get('inactive') == '1'
+    query = (request.GET.get('q') or '').strip()[:100]
+    message = ''
+    form_error = ''
+    status = 200
+
+    if request.method == 'POST':
+        failed = _check_post(request, 20000)
+        if failed is not None:
+            return failed
+        if not email or '@' not in email or len(email) > 255:
+            form_error = 'Bitte eine gültige E-Mail-Adresse wählen.'
+        else:
+            role = (request.POST.get('role') or '').strip()
+            responsibility = (request.POST.get('responsibility') or '').strip()
+            first_name = (request.POST.get('firstName') or '').strip()[:100]
+            last_name = (request.POST.get('lastName') or '').strip()[:100]
+            if (role not in domain_support.VALID_ROLES
+                    or responsibility and responsibility not in domain_support.VALID_RESPONSIBILITIES
+                    or not first_name or not last_name):
+                form_error = 'Bitte Name, Rolle und Zuständigkeit prüfen.'
+            else:
+                payload = {
+                    'mailAddress': email, 'firstName': first_name, 'lastName': last_name,
+                    'role': role, 'responsibility': responsibility,
+                    'active': request.POST.get('active') == 'on',
+                    'isNew': request.POST.get('isNew') == '1',
+                }
+                answer = _native(request, account_commands.update_user, payload,
+                                 method='put', url='/Account/Users/')
+                try:
+                    outcome = json.loads(answer.content)
+                except (ValueError, TypeError):
+                    outcome = {}
+                if (answer.status_code != 200 or not isinstance(outcome, dict)
+                        or outcome.get('errorMessage')):
+                    form_error = 'Benutzer konnte nicht gespeichert werden. Berechtigungen und Eingaben prüfen.'
+                else:
+                    return HttpResponseRedirect(prefix + '/__ui/admin/users/?saved=1')
+        status = 400 if form_error else 200
+
+    try:
+        with connect() as db:
+            records = [dict(row) for row in user_repository.users(db)]
+    except Exception:
+        LOG.exception('User administration list unavailable')
+        return ui._render(request, 'error.html', {
+            'message': 'Benutzeradministration vorübergehend nicht verfügbar.',
+            'private': True, 'user': user}, status=503)
+
+    selected = next((row for row in records if row.get('email') == email), None) if email else None
+    if email and selected is None:
+        form_error = 'Benutzer wurde nicht gefunden.'
+        status = 404
+    visible = [row for row in records
+               if (show_inactive or row.get('active'))
+               and (not query or query.casefold() in ' '.join(str(row.get(k) or '') for k in
+                    ('first_name', 'last_name', 'email', 'role', 'responsibility')).casefold())]
+    roles = [('administrator', 'Administrator'), ('inspector', 'Kontrolleur'),
+             ('maintenance', 'Unterhalt')]
+    return ui._render(request, 'admin_users.html', {
+        'private': True, 'user': user, 'rows': visible, 'selected': selected,
+        'edit_email': email, 'show_inactive': show_inactive, 'query': query,
+        'roles': roles, 'responsibilities': sorted(domain_support.VALID_RESPONSIBILITIES),
+        'csrf_token_value': get_token(request), 'form_error': form_error,
+        'saved': request.GET.get('saved') == '1', 'total': len(records),
+    }, status=status)
 
 
 @csrf_protect
