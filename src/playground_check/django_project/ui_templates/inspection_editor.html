@@ -1,18 +1,106 @@
+<link rel="stylesheet" href="{{ prefix }}/static/css/inspection-device-chip.css">
 <div class="page-heading"><p class="eyebrow">Inspektion durchführen</p><h1>{{ name }}</h1><p>{{ kind }} · {{ devices|length }} Spielgeräte</p></div>
 {% if form_error %}<div class="notice warning inspection-error" role="alert"><strong>Der Inspektionsbericht wurde nicht gespeichert.</strong><p>{{ form_error }}</p><p>Deine Eingaben sind weiterhin vorhanden. Bitte korrigiere sie und versuche es erneut.</p></div>{% endif %}
 <div class="notice warning">ACHTUNG: Prüfungen müssen gemäss den vorliegenden Anweisungen und der Montageanleitung des jeweiligen Produkts erfolgen.</div>
-<form method="post" action="{{ prefix }}/__ui/inspection/" class="inspection-form">
+<form method="post" action="{{ prefix }}/__ui/inspection/" class="inspection-form" id="inspection-form">
+<div class="inspection-chooser" aria-label="Spielgerät für Inspektion wählen">
+  <h2>Spielgerät wählen</h2>
+  <p class="muted">Wähle ein Gerät, bearbeite dessen Prüfpunkte und wechsle danach zum nächsten Gerät. Der Status bezieht sich immer auf Prüfung <strong>und</strong> Wartung.</p>
+  <div class="inspection-chooser-list" role="group" aria-label="Spielgeräte">
+  {% for device in devices %}
+    <button type="button" class="inspection-choose-device" data-inspection-select="{{ device.fid }}" aria-controls="ins-panel-{{ device.fid }}" aria-pressed="false">
+      <span class="inspection-choice-name">{{ device.name }}</span>
+      <span class="inspection-device-chip" data-inspection-chip="{{ device.fid }}">{% if device.not_to_be_checked or device.cannot_be_checked %}inaktiv{% elif not device.checks %}keine Kontrollen{% else %}pendent{% endif %}</span>
+    </button>
+  {% endfor %}
+  </div>
+</div>
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
-{% for device in devices %}<section class="inspection-device" aria-labelledby="ins-device-{{ device.fid }}">
-<header class="inspection-device-head"><h2 id="ins-device-{{ device.fid }}">{{ device.name }}</h2><span class="muted">Geräte-FID {{ device.fid }}</span></header>
+{% for device in devices %}<section class="inspection-device" id="ins-panel-{{ device.fid }}" data-inspection-device="{{ device.fid }}" aria-labelledby="ins-device-{{ device.fid }}">
+<header class="inspection-device-head"><div><h2 id="ins-device-{{ device.fid }}">{{ device.name }}</h2><span class="muted">Geräte-FID {{ device.fid }}</span></div>
+{% if device.checks and not device.not_to_be_checked and not device.cannot_be_checked %}
+<button type="button" class="inspection-device-chip inspection-chip-toggle" data-inspection-toggle="{{ device.fid }}" aria-label="Alle Prüf- und Wartungsschritte dieses Geräts als erledigt markieren">pendent</button>
+{% endif %}</header>
 {% if device.not_to_be_checked %}<p class="notice warning">Dieses Spielgerät ist von der Kontrolle ausgenommen.</p>
 {% elif device.cannot_be_checked %}<p class="notice warning">Dieses Spielgerät ist als nicht prüfbar markiert.</p><p><a href="{{ prefix }}/__ui/device/checkability/?fid={{ device.fid }}&amp;name={{ name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Prüfbarkeit bearbeiten</a></p>
 {% elif not device.checks %}<p class="muted">Keine Inspektionskriterien hinterlegt.</p>
 {% else %}<h3 class="inspection-group-title">Inspektionskriterien</h3>
 {% for check in device.checks %}<details class="inspection-criterion" open>
-<summary><span>{{ check.realm }}{% if check.realm and check.label %} – {% endif %}{{ check.label }}{% if check.fall %} · {{ check.fall }}{% endif %}</span><span class="inspection-pending">Prüfpunkt</span></summary>
+<summary><span>{{ check.realm }}{% if check.realm and check.label %} – {% endif %}{{ check.label }}{% if check.fall %} · {{ check.fall }}{% endif %}</span><span class="inspection-pending" data-inspection-criterion-chip>pendent</span></summary>
 <div class="inspection-criterion-content">
 <div class="inspection-half"><h4>Prüfung</h4><p class="inspection-instruction">{{ check.check }}</p><label class="inspection-checkbox"><input type="checkbox" name="inspection_done_{{ device.fid }}_{{ check.index }}" {% if check.inspection_done %}checked{% endif %}> Prüfung erledigt</label><label for="comment_{{ device.fid }}_{{ check.index }}">Kommentar zur Prüfung</label><textarea id="comment_{{ device.fid }}_{{ check.index }}" name="comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2">{{ check.comment }}</textarea></div>
 <div class="inspection-half"><h4>Wartung</h4><p class="inspection-instruction maintenance">{{ check.maintenance }}</p><label class="inspection-checkbox"><input type="checkbox" name="maintenance_done_{{ device.fid }}_{{ check.index }}" {% if check.maintenance_done %}checked{% endif %}> Wartung erledigt</label><label for="maintenance_comment_{{ device.fid }}_{{ check.index }}">Kommentar zur Wartung</label><textarea id="maintenance_comment_{{ device.fid }}_{{ check.index }}" name="maintenance_comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2">{{ check.maintenance_comment }}</textarea></div>
 </div></details>{% endfor %}{% endif %}</section>{% endfor %}
 <div class="inspection-submit"><label class="inspection-checkbox"><input type="checkbox" name="confirm" value="yes" {% if confirmed %}checked{% endif %} required> Inspektionsbericht abschliessend einreichen</label><button type="submit">Inspektionsbericht senden</button><p class="muted">Bitte vor dem Absenden alle Prüf- und Wartungspositionen kontrollieren.</p></div></form>
+
+<script>
+/* Small progressive enhancement: the server remains the authority for inspection data. */
+(function () {
+  const form = document.getElementById('inspection-form');
+  if (!form) return;
+  const panels = Array.from(form.querySelectorAll('[data-inspection-device]'));
+  const selectors = Array.from(form.querySelectorAll('[data-inspection-select]'));
+  if (!panels.length) return;
+  const fieldName = 'selected_device';
+  const chosen = document.createElement('input');
+  chosen.type = 'hidden'; chosen.name = fieldName;
+  form.appendChild(chosen);
+  function checks(panel) {
+    return Array.from(panel.querySelectorAll('input[type="checkbox"][name^="inspection_done_"], input[type="checkbox"][name^="maintenance_done_"]'));
+  }
+  function update(panel) {
+    const id = panel.dataset.inspectionDevice;
+    const all = checks(panel);
+    const complete = all.length > 0 && all.every(box => box.checked);
+    const status = !all.length ? (panel.querySelector('.inspection-chip-toggle') ? 'keine Kontrollen' : null) : (complete ? 'erledigt' : 'pendent');
+    const toggle = panel.querySelector('[data-inspection-toggle]');
+    const chooser = selectors.find(button => button.dataset.inspectionSelect === id);
+    const chip = chooser && chooser.querySelector('[data-inspection-chip]');
+    if (toggle) {
+      toggle.textContent = status;
+      toggle.classList.toggle('is-done', complete);
+      toggle.setAttribute('aria-label', complete ? 'Alle Prüf- und Wartungsschritte dieses Geräts auf pendent setzen' : 'Alle Prüf- und Wartungsschritte dieses Geräts als erledigt markieren');
+    }
+    if (chip && all.length) {
+      chip.textContent = status;
+      chip.classList.toggle('is-done', complete);
+    }
+    panel.querySelectorAll('.inspection-criterion').forEach(criterion => {
+      const itemChecks = checks(criterion);
+      const done = itemChecks.length > 0 && itemChecks.every(box => box.checked);
+      const itemChip = criterion.querySelector('[data-inspection-criterion-chip]');
+      if (itemChip) {
+        itemChip.textContent = done ? 'erledigt' : 'pendent';
+        itemChip.classList.toggle('is-done', done);
+      }
+    });
+  }
+  function select(id, focus) {
+    chosen.value = id;
+    panels.forEach(panel => { panel.hidden = panel.dataset.inspectionDevice !== id; });
+    selectors.forEach(button => {
+      const active = button.dataset.inspectionSelect === id;
+      button.setAttribute('aria-pressed', String(active));
+      button.classList.toggle('is-selected', active);
+    });
+    const activePanel = panels.find(panel => panel.dataset.inspectionDevice === id);
+    if (focus && activePanel) activePanel.querySelector('h2')?.scrollIntoView({block:'start', behavior:'smooth'});
+  }
+  selectors.forEach(button => button.addEventListener('click', () => select(button.dataset.inspectionSelect, true)));
+  panels.forEach(panel => {
+    panel.addEventListener('change', event => {
+      if (event.target.matches('input[type="checkbox"]')) update(panel);
+    });
+    const toggle = panel.querySelector('[data-inspection-toggle]');
+    if (toggle) toggle.addEventListener('click', () => {
+      const all = checks(panel);
+      const newValue = !all.every(box => box.checked);
+      all.forEach(box => { box.checked = newValue; });
+      update(panel);
+    });
+    update(panel);
+  });
+  const previous = '{{ selected_device|default:""|escapejs }}';
+  select(panels.some(p => p.dataset.inspectionDevice === previous) ? previous : panels[0].dataset.inspectionDevice, false);
+})();
+</script>

@@ -312,7 +312,8 @@ def inspection_editor(request):
     if not devices or len(devices) > 300 or len({d["fid"] for d in devices}) != len(devices):
         return _render(request, "error.html", {"message": "Keine gültige Geräteliste verfügbar.", "private": True}, status=400)
     context = {"name": name, "kind": kind, "devices": devices, "private": True, "user": user,
-               "csrf_token_value": get_token(request)}
+               "csrf_token_value": get_token(request),
+               "selected_device": (source.get("selected_device") or "")[:24]}
     if request.method == "GET":
         return _render(request, "inspection_editor.html", context)
     context["confirmed"] = request.POST.get("confirm") == "yes"
