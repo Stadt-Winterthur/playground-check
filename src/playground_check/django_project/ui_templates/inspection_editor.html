@@ -8,10 +8,14 @@
   <p class="muted">Wähle ein Gerät, bearbeite dessen Prüfpunkte und wechsle danach zum nächsten Gerät. Der Status bezieht sich immer auf Prüfung <strong>und</strong> Wartung.</p>
   <div class="inspection-chooser-list" role="group" aria-label="Spielgeräte">
   {% for device in devices %}
-    <button type="button" class="inspection-choose-device" data-inspection-select="{{ device.fid }}" aria-controls="ins-panel-{{ device.fid }}" aria-pressed="false">
-      <span class="inspection-choice-name">{{ device.name }}</span>
-      <span class="inspection-device-chip" data-inspection-chip="{{ device.fid }}">{% if device.not_to_be_checked or device.cannot_be_checked %}inaktiv{% elif not device.checks %}keine Kontrollen{% else %}pendent{% endif %}</span>
-    </button>
+    <div class="inspection-choose-row">
+      <button type="button" class="inspection-choose-device" data-inspection-select="{{ device.fid }}" aria-controls="ins-panel-{{ device.fid }}" aria-pressed="false">
+        <span class="inspection-choice-name">{{ device.name }}</span>
+      </button>
+      {% if device.checks and not device.not_to_be_checked and not device.cannot_be_checked %}
+      <button type="button" class="inspection-device-chip inspection-chip-toggle" data-inspection-chip="{{ device.fid }}" aria-label="Alle Prüf- und Wartungsschritte für {{ device.name }} als erledigt markieren">pendent</button>
+      {% else %}<span class="inspection-device-chip">{% if device.not_to_be_checked or device.cannot_be_checked %}inaktiv{% else %}keine Kontrollen{% endif %}</span>{% endif %}
+    </div>
   {% endfor %}
   </div>
 </div>
@@ -40,6 +44,7 @@
   if (!form) return;
   const panels = Array.from(form.querySelectorAll('[data-inspection-device]'));
   const selectors = Array.from(form.querySelectorAll('[data-inspection-select]'));
+  const chips = Array.from(form.querySelectorAll('button[data-inspection-chip]'));
   if (!panels.length) return;
   const fieldName = 'selected_device';
   const chosen = document.createElement('input');
@@ -55,7 +60,7 @@
     const status = !all.length ? (panel.querySelector('.inspection-chip-toggle') ? 'keine Kontrollen' : null) : (complete ? 'erledigt' : 'pendent');
     const toggle = panel.querySelector('[data-inspection-toggle]');
     const chooser = selectors.find(button => button.dataset.inspectionSelect === id);
-    const chip = chooser && chooser.querySelector('[data-inspection-chip]');
+    const chip = chips.find(button => button.dataset.inspectionChip === id);
     if (toggle) {
       toggle.textContent = status;
       toggle.classList.toggle('is-done', complete);
@@ -64,6 +69,7 @@
     if (chip && all.length) {
       chip.textContent = status;
       chip.classList.toggle('is-done', complete);
+      chip.setAttribute('aria-label', (complete ? 'Alle Prüf- und Wartungsschritte auf pendent setzen: ' : 'Alle Prüf- und Wartungsschritte als erledigt markieren: ') + (chooser?.textContent || '').trim());
     }
     panel.querySelectorAll('.inspection-criterion').forEach(criterion => {
       const itemChecks = checks(criterion);
@@ -86,18 +92,23 @@
     const activePanel = panels.find(panel => panel.dataset.inspectionDevice === id);
     if (focus && activePanel) activePanel.querySelector('h2')?.scrollIntoView({block:'start', behavior:'smooth'});
   }
+  function toggleDevice(id) {
+    const panel = panels.find(item => item.dataset.inspectionDevice === id);
+    if (!panel) return;
+    const all = checks(panel);
+    if (!all.length) return;
+    const newValue = !all.every(box => box.checked);
+    all.forEach(box => { box.checked = newValue; });
+    update(panel);
+  }
   selectors.forEach(button => button.addEventListener('click', () => select(button.dataset.inspectionSelect, true)));
+  chips.forEach(button => button.addEventListener('click', () => toggleDevice(button.dataset.inspectionChip)));
   panels.forEach(panel => {
     panel.addEventListener('change', event => {
       if (event.target.matches('input[type="checkbox"]')) update(panel);
     });
     const toggle = panel.querySelector('[data-inspection-toggle]');
-    if (toggle) toggle.addEventListener('click', () => {
-      const all = checks(panel);
-      const newValue = !all.every(box => box.checked);
-      all.forEach(box => { box.checked = newValue; });
-      update(panel);
-    });
+    if (toggle) toggle.addEventListener('click', () => toggleDevice(toggle.dataset.inspectionToggle));
     update(panel);
   });
   const previous = '{{ selected_device|default:""|escapejs }}';

@@ -2,3 +2,8 @@
 .inspection-chooser{background:white;border:1px solid var(--line);border-radius:13px;padding:1rem}.inspection-chooser h2{margin:0;font-size:1.18rem}.inspection-chooser-list{display:grid;grid-template-columns:1fr;gap:.6rem;margin-top:1rem}.inspection-choose-device{display:flex;justify-content:space-between;gap:.7rem;align-items:center;text-align:left;padding:.8rem;background:#fff;color:var(--city-ink);border:1px solid var(--line);border-radius:11px;min-width:0}.inspection-choose-device.is-selected{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand);background:#fff9f9}.inspection-choice-name{overflow-wrap:anywhere}.inspection-device-chip{display:inline-flex;flex:none;align-items:center;justify-content:center;background:#efac94;border:0;border-radius:999px;padding:.4rem .7rem;color:#231d1b;font-size:.86rem;font-weight:700;min-height:38px}.inspection-device-chip.is-done,.inspection-pending.is-done{background:#91eb93;color:#12381b;border-color:#428d47}.inspection-chip-toggle{cursor:pointer}.inspection-chip-toggle:focus-visible{outline:3px solid #156da1}.inspection-device[hidden]{display:none!important}.inspection-device h2{scroll-margin-top:100px}.inspection-criterion .inspection-pending{white-space:nowrap}
 @media(min-width:640px){.inspection-chooser-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(min-width:1100px){.inspection-chooser-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Separate device selection from the bulk status action (no nested buttons). */
+.inspection-choose-row{display:flex;align-items:stretch;gap:.5rem;min-width:0}
+.inspection-choose-row .inspection-choose-device{flex:1;min-width:0}
+.inspection-choose-row .inspection-device-chip{align-self:center;min-width:78px;min-height:44px}
