@@ -32,7 +32,7 @@ class PythonUIV2Tests(unittest.TestCase):
 
     def test_authenticated_lookup_escapes_names(self):
         with patch.object(self.ui, "require_user", return_value=({"mailAddress": "a@example.ch"}, None)), \
-             patch.object(self.ui, "playground_only_names_data", return_value=[{"name": "<script>alert(1)</script>"}]):
+             patch("playground_check.remaining_reads_repository.gui_playground_page", return_value=[{"name": "<script>alert(1)</script>", "has_open": False}]):
             response = self.ui.assigned_playgrounds(self.rf.get("/__ui/assigned/"))
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"<script>", response.content)
@@ -40,7 +40,10 @@ class PythonUIV2Tests(unittest.TestCase):
 
     def test_no_unbounded_private_search_input(self):
         with patch.object(self.ui, "require_user", return_value=({"mailAddress": "a@example.ch"}, None)), \
-             patch.object(self.ui, "playground_only_names_data", return_value=[]) as fetch:
+             patch("playground_check.remaining_reads_repository.gui_playground_page", return_value=[]) as fetch:
             response = self.ui.assigned_playgrounds(self.rf.get("/__ui/assigned/", {"q":"a"*1000, "inspectiontype":"b"*500}))
         self.assertEqual(response.status_code, 200)
-        self.assertLessEqual(len(fetch.call_args.args[1]["inspectiontype"]), 100)
+        self.assertLessEqual(len(fetch.call_args.args[2]), 100)  # inspection_type
+        self.assertLessEqual(len(fetch.call_args.args[3]), 120)  # query
+        self.assertEqual(fetch.call_args.args[4], 0)  # offset
+        self.assertEqual(fetch.call_args.args[5], 21)  # limit

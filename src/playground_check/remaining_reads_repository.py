@@ -125,3 +125,76 @@ def defect_picture_rows(db: Connection, tid: int) -> list[Mapping[str, Any]]:
             'SELECT tid, zeitpunkt AS after_fixing FROM "wgr_sp_insp_mangel_foto" WHERE tid_maengel=%s',
             (tid,),
         ).fetchall()
+
+
+def gui_playground_page(db: Connection, user: Mapping[str, Any] | None, inspection_type: str,
+                        query: str, offset: int, limit: int) -> list[Mapping[str, Any]]:
+    """Bounded SQL lookup; enforce user assignment for inspection mode."""
+    like = '%' + query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+    if inspection_type:
+        if not user or not user.get('mailAddress') or not inspection_type.endswith(')'):
+            return []
+        sql = '''SELECT DISTINCT sp.name, sp.inspektion_aussetzen_von AS suspend_from,
+                   sp.inspektion_aussetzen_bis AS suspend_to, false AS has_open
+                 FROM "wgr_sp_spielplatz" sp
+                 JOIN "wgr_sp_inspart_kontr" ikt ON sp.fid=ikt.fid_spielplatz
+                 JOIN "wgr_sp_kontrolleur" kt ON kt.fid=ikt.fid_kontrolleur
+                 JOIN "wgr_sp_inspektionsart_tbd" ina ON ina.id=ikt.id_inspektionsart
+                 WHERE trim(lower(kt.e_mail))=trim(lower(%s)) AND ina.value=%s
+                   AND sp.name ILIKE %s ESCAPE '\'
+                   AND NOT (COALESCE(sp.inspektion_aussetzen_von, DATE '9999-12-31') <= CURRENT_DATE
+                            AND COALESCE(sp.inspektion_aussetzen_bis, DATE '0001-01-01') >= CURRENT_DATE)
+                 ORDER BY sp.name LIMIT %s OFFSET %s'''
+        params = (user['mailAddress'], inspection_type[:-5], like, limit, offset)
+    else:
+        sql = '''SELECT sp.name, sp.inspektion_aussetzen_von AS suspend_from,
+                   sp.inspektion_aussetzen_bis AS suspend_to,
+                   EXISTS (SELECT 1 FROM "wgr_sp_insp_mangel" mangel
+                     JOIN "gr_v_spielgeraete" geraete ON mangel.fid_spielgeraet=geraete.fid
+                     WHERE geraete.fid_spielplatz=sp.fid AND mangel.fid_erledigung IS NULL) AS has_open
+                 FROM "wgr_sp_spielplatz" sp
+                 WHERE sp.name ILIKE %s ESCAPE '\'
+                 ORDER BY sp.name, sp.fid LIMIT %s OFFSET %s'''
+        params = (like, limit, offset)
+    return db.execute(sql, params).fetchall()
+
+
+def gui_defect_page(db: Connection, query: str, state: str, offset: int, limit: int) -> list[Mapping[str, Any]]:
+    """Page defects in SQL; filter applies to all rows, not just the loaded subset."""
+    like = '%' + query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+    sql = """SELECT * FROM (
+SELECT
+            mangel.tid, mangel.fid_spielgeraet AS playdevice_fid,
+            spielplatz.name AS playground_name,
+            COALESCE(geraeteart.value, geraeteart.short_value, '') AS playdevice_type,
+            geraet.norm AS standard,
+            mangel.id_dringlichkeit AS priority,
+            mangel.beschrieb AS description,
+            mangel.bemerkunng AS comment,
+            mangel.datum AS date_creation,
+            mangel.datum_erledigung AS date_done,
+            mangel.fid_erledigung AS done_by,
+            mangel.id_zustaendig_behebung AS responsible_body_id,
+            mangel.fid_zustaendig_kontrolleur AS responsible_user_fid,
+            TRIM(CONCAT(COALESCE(kontrolleur.vorname, ''), ' ', COALESCE(kontrolleur.nachname, ''))) AS responsible_user_name,
+            (
+                mangel.fid_erledigung IS NULL
+                AND mangel.id_dringlichkeit = 1
+                AND mangel.auftrag_status = 'zugewiesen'
+                AND mangel.datum_auftrag_zugewiesen IS NOT NULL
+                AND mangel.datum_auftrag_angenommen IS NULL
+                AND mangel.datum_auftrag_abgelehnt IS NULL
+                AND mangel.datum_auftrag_zugewiesen <= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+            ) AS assignment_overdue
+            FROM "wgr_sp_insp_mangel" mangel
+            LEFT JOIN "gr_v_spielgeraete" geraet ON geraet.fid=mangel.fid_spielgeraet
+            LEFT JOIN "wgr_sp_spielplatz" spielplatz ON spielplatz.fid=geraet.fid_spielplatz
+            LEFT JOIN "wgr_sp_spielgeraeteart_tbd" geraeteart ON geraeteart.id=geraet.id_geraeteart
+            LEFT JOIN "wgr_sp_kontrolleur" kontrolleur ON kontrolleur.fid=mangel.fid_zustaendig_kontrolleur
+    ) AS items
+    WHERE (%s = 'all' OR (%s = 'open' AND done_by IS NULL) OR (%s = 'done' AND done_by IS NOT NULL))
+      AND (playground_name ILIKE %s ESCAPE '\' OR playdevice_type ILIKE %s ESCAPE '\'
+           OR description ILIKE %s ESCAPE '\' OR responsible_user_name ILIKE %s ESCAPE '\')
+    ORDER BY (done_by IS NOT NULL), date_creation, playground_name, playdevice_type, tid
+    LIMIT %s OFFSET %s"""
+    return db.execute(sql, (state, state, state, like, like, like, like, limit, offset)).fetchall()

@@ -14,7 +14,11 @@ TEMPLATE = (Path(__file__).resolve().parents[1]
 class InspectionTypeAutoSubmitTests(unittest.TestCase):
     def test_inspection_selection_submits_on_change(self):
         html = TEMPLATE.read_text(encoding="utf-8")
-        self.assertIn('name="inspectiontype" required onchange="this.form.requestSubmit()"', html)
+        self.assertIn('name="inspectiontype" required hx-get=', html)
+        self.assertIn('hx-trigger="change"', html)
+        self.assertIn('hx-push-url="true"', html)
+        self.assertNotIn('onchange="', html)
+        self.assertIn('Inspektionsart auswählen', html)
         self.assertIn('method="get"', html)
         self.assertIn('name="mode" value="inspection"', html)
 

@@ -29,7 +29,7 @@ class DefectGuiTests(unittest.TestCase):
         db.__enter__.return_value = db
         rows = [{"tid": 10, "playground_name": "<script>alert(1)</script>", "description": "Broken", "done_by": None},
                 {"tid": 11, "playground_name": "Other", "description": "Fixed", "done_by": 2}]
-        with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)), patch.object(self.ui, "connect", return_value=db), patch.object(self.ui, "defect_overview_rows", return_value=rows):
+        with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)), patch.object(self.ui, "connect", return_value=db), patch("playground_check.remaining_reads_repository.gui_defect_page", side_effect=lambda db, query, state, offset, limit: [r for r in rows if (state == "all" or (r["done_by"] is None) == (state == "open"))][:limit]):
             response = self.ui.defects(self.rf.get("/__ui/defects/", SCRIPT_NAME="/stadtgruen/spielplatzkontrolle"))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"&lt;script&gt;", response.content)
@@ -42,7 +42,7 @@ class DefectGuiTests(unittest.TestCase):
         db = MagicMock()
         db.__enter__.return_value = db
         rows = [{"tid": 10, "playground_name": "A", "done_by": None}, {"tid": 11, "playground_name": "B", "done_by": 2}]
-        with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)), patch.object(self.ui, "connect", return_value=db), patch.object(self.ui, "defect_overview_rows", return_value=rows):
+        with patch.object(self.ui, "require_user", return_value=({"fid": 1}, None)), patch.object(self.ui, "connect", return_value=db), patch("playground_check.remaining_reads_repository.gui_defect_page", side_effect=lambda db, query, state, offset, limit: [r for r in rows if (state == "all" or (r["done_by"] is None) == (state == "open"))][:limit]):
             response = self.ui.defects(self.rf.get("/__ui/defects/", {"state": "done"}, HTTP_HX_REQUEST="true"))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"TID 11", response.content)

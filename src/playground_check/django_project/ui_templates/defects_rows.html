@@ -1,9 +1,2 @@
-<p role="status">{{ count }} Mängel gefunden (Seite {{ page }}).</p>
-<div class="cards">{% for defect in rows %}<article class="tile"><strong>{{ defect.playground_name|default:"Spielplatz unbekannt" }}</strong>
-<p>{{ defect.playdevice_type|default:"Spielgerät" }} · TID {{ defect.tid }}</p>
-<p>{{ defect.description|default:"Keine Beschreibung" }}</p>
-<p>{% if defect.done_by %}Erledigt{% else %}Offen{% endif %}{% if defect.assignment_overdue %} · Zuweisung überfällig{% endif %}</p>
-<p><a href="{{ prefix }}/__ui/defect/?tid={{ defect.tid|urlencode }}">Mangel anzeigen / Zuweisung</a></p>{% if defect.responsible_user_name %}<p>Zuständig: {{ defect.responsible_user_name }}</p>{% endif %}</article>
-{% empty %}<p>Keine passenden Mängel vorhanden.</p>{% endfor %}</div>
-<nav aria-label="Seitennavigation">{% if has_previous %}<a href="{{ prefix }}/__ui/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;page={{ previous }}">Zurück</a>{% endif %}
-{% if has_next %}<a href="{{ prefix }}/__ui/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;page={{ next }}">Weiter</a>{% endif %}</nav>
+{% if rows %}<div class="cards">{% for defect in rows %}<article class="tile"><strong>{{ defect.playground_name|default:"Spielplatz unbekannt" }}</strong><p>{{ defect.playdevice_type|default:"Spielgerät" }} · TID {{ defect.tid }}</p><p>{{ defect.description|default:"Keine Beschreibung" }}</p><p>{% if defect.done_by %}Erledigt{% else %}Offen{% endif %}{% if defect.assignment_overdue %} · Zuweisung überfällig{% endif %}</p><p><a href="{{ prefix }}/__ui/defect/?tid={{ defect.tid|urlencode }}">Mangel anzeigen / Zuweisung</a></p>{% if defect.responsible_user_name %}<p>Zuständig: {{ defect.responsible_user_name }}</p>{% endif %}</article>{% endfor %}</div>{% elif page == 1 %}<p class="empty-state">Keine passenden Mängel vorhanden.</p>{% endif %}
+{% if has_next %}<div class="load-more" hx-get="{{ prefix }}/__ui/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;page={{ next }}&amp;append=1" hx-trigger="revealed" hx-swap="outerHTML"><a href="{{ prefix }}/__ui/defects/?q={{ query|urlencode }}&amp;state={{ state|urlencode }}&amp;page={{ next }}">Weitere Mängel laden</a></div>{% endif %}

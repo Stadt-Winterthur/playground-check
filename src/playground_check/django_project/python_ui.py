@@ -125,36 +125,45 @@ def workspace(request):
 @require_GET
 @ui_login_required
 def assigned_playgrounds(request):
-    """Authorized inspection-specific playground selector from the shared domain service."""
+    """Bounded SQL pages; inspection assignment stays enforced server-side."""
     user, denied = _private(request)
-    if denied: return denied
+    if denied is not None:
+        return denied
+    from playground_check.remaining_reads_repository import gui_playground_page, inspection_type_rows
     query = (request.GET.get("q") or "").strip()[:120]
-    inspection_type = (request.GET.get("inspectiontype") or "").strip()[:100]
-    inspection_mode = request.GET.get("mode") == "inspection" or bool(inspection_type)
+    kind = (request.GET.get("inspectiontype") or "").strip()[:100]
+    inspection_mode = request.GET.get("mode") == "inspection" or bool(kind)
     try:
-        # Do not expose the unrestricted list as an inspection choice.
-        rows = (playground_only_names_data(user, {"inspectiontype": inspection_type})
-                if inspection_type or not inspection_mode else [])
+        page = max(1, min(10000, int(request.GET.get("page", "1"))))
+    except (TypeError, ValueError):
+        page = 1
+    size = 20
+    rows, types = [], []
+    try:
+        with connect() as db:
+            if inspection_mode and request.headers.get("HX-Request") != "true":
+                types = [f"{r['value']} ({r['short_value']})" for r in inspection_type_rows(db)]
+            # A malicious inspectiontype must never enable unrestricted playground access.
+            if not inspection_mode or kind:
+                raw = gui_playground_page(db, user, kind if inspection_mode else "", query,
+                                          (page - 1) * size, size + 1)
+                rows = [{"name": r["name"], "hasOpenDeviceDefects": bool(r["has_open"]),
+                         "inspectionSuspended": False} for r in raw[:size]]
+                has_next = len(raw) > size
+            else:
+                has_next = False
     except Exception:
-        LOGGER.exception("Could not load assigned playgrounds")
+        LOGGER.exception("Could not load playground page")
         return _render(request, "error.html", {"message": "Spielplätze können derzeit nicht geladen werden.", "private": True}, status=503)
-    found = [x for x in rows if query.casefold() in str(x.get("name") or "").casefold()][:200]
-    # Use the exact DB identifiers (e.g. "Visuelle Inspektion (VI)").
-    # A blank type denotes the read-only overview, not inspection eligibility.
-    type_choices = []
-    if inspection_mode and request.headers.get("HX-Request") != "true":
-        try:
-            from playground_check.remaining_reads_repository import inspection_type_rows
-            with connect() as db:
-                type_choices = [f"{item['value']} ({item['short_value']})"
-                                for item in inspection_type_rows(db)]
-        except Exception:
-            LOGGER.exception("Could not load inspection type selector")
-    context = {"rows": found, "query": query, "inspection_type": inspection_type,
-               "inspection_types": type_choices, "inspection_mode": inspection_mode,
-               "user": user, "private": True}
+    data = {"rows": rows, "query": query, "inspection_type": kind, "inspection_mode": inspection_mode,
+            "inspection_types": types, "page": page, "next": page + 1, "has_next": has_next,
+            "user": user, "private": True}
     partial = request.headers.get("HX-Request") == "true"
-    return _render(request, "assigned_rows.html" if partial else "assigned.html", context, partial=partial)
+    if partial and request.GET.get("append") == "1":
+        template = "assigned_rows.html"
+    else:
+        template = "assigned_results.html" if partial else "assigned.html"
+    return _render(request, template, data, partial=partial)
 
 
 @require_GET
@@ -193,14 +202,11 @@ def playground_detail(request):
 @require_GET
 @ui_login_required
 def defects(request):
-    """Private defect overview with bounded display and progressive-enhancement search.
-
-    Uses the same read-only repository as the DRF defect overview; no direct SQL
-    in templates and no mutation endpoints exposed by this page.
-    """
+    """SQL-paginated defect overview with the existing state filter."""
     user, denied = _private(request)
-    if denied:
+    if denied is not None:
         return denied
+    from playground_check.remaining_reads_repository import gui_defect_page
     query = (request.GET.get("q") or "").strip()[:120]
     state = (request.GET.get("state") or "open").strip().lower()
     if state not in {"open", "all", "done"}:
@@ -209,30 +215,19 @@ def defects(request):
         page = max(1, min(10000, int(request.GET.get("page", "1"))))
     except (TypeError, ValueError):
         page = 1
+    size = 20
     try:
         with connect() as db:
-            rows = defect_overview_rows(db)
+            raw = gui_defect_page(db, query, state, (page - 1) * size, size + 1)
     except Exception:
         LOGGER.exception("Could not load defect overview")
         return _render(request, "error.html", {"message": "Mängel sind derzeit nicht verfügbar.", "private": True}, status=503)
-    filtered = []
-    for item in rows:
-        row = dict(item)
-        done = row.get("done_by") is not None
-        if (state == "open" and done) or (state == "done" and not done):
-            continue
-        if query and query.casefold() not in " ".join(str(row.get(key) or "") for key in ("playground_name", "playdevice_type", "description", "responsible_user_name")).casefold():
-            continue
-        filtered.append(row)
-    size = 30
-    count = len(filtered)
-    offset = (page - 1) * size
-    values = {"rows": filtered[offset:offset + size], "query": query, "state": state,
-              "page": page, "has_previous": page > 1, "has_next": offset + size < count,
-              "previous": page - 1, "next": page + 1, "count": count,
-              "private": True, "user": user}
+    data = {"rows": [dict(item) for item in raw[:size]], "query": query, "state": state,
+            "page": page, "next": page + 1, "has_next": len(raw) > size,
+            "user": user, "private": True}
     partial = request.headers.get("HX-Request") == "true"
-    return _render(request, "defects_rows.html" if partial else "defects.html", values, partial=partial)
+    template = ("defects_rows.html" if request.GET.get("append") == "1" else "defects_results.html") if partial else "defects.html"
+    return _render(request, template, data, partial=partial)
 
 
 @csrf_protect
