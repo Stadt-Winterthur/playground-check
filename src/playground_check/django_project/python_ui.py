@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from functools import wraps
 
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.test import RequestFactory
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_protect
@@ -178,6 +178,11 @@ def playground_detail(request):
     if not name:
         return _render(request, "error.html", {"message": "Kein Spielplatz ausgewählt.", "private": True}, status=400)
     kind = (source.get("inspectiontype") or "").strip()[:100]
+    if kind and request.method == "GET":
+        from urllib.parse import urlencode
+        # Inspection links must enter the criterion editor, not the device/document view.
+        # The destination revalidates assignment, type and device eligibility.
+        return HttpResponseRedirect(_prefix(request) + "/__ui/inspection/?" + urlencode({"name": name, "inspectiontype": kind}))
     try:
         payload = playground_by_name_data({"name": name, "inspectiontype": kind, "withdefects": "true", "withinspections": "true"})
     except LookupError:

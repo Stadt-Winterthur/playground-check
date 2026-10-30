@@ -4,7 +4,6 @@
   {% if playground.address %}<p>{{ playground.address }}</p>{% endif %}
 </div>
 {% if playground.inspectionSuspended %}<div class="notice warning" role="status">Inspektionen sind für diesen Spielplatz derzeit ausgesetzt.</div>{% endif %}
-{% if can_inspect %}<div class="context-actions"><a class="primary-button" href="{{ prefix }}/__ui/inspection/?name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Inspektion starten</a></div>{% endif %}
 
 <section id="documents" class="playground-document-board" aria-label="Dokumente zum Spielplatz">
   <div class="document-board-head">
