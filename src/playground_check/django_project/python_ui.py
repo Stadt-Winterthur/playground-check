@@ -313,7 +313,14 @@ def inspection_editor(request):
                                    "inspection_done": False, "maintenance_done": False})
             devices.append({"fid": fid, "name": item.get("name") or props.get("type", {}).get("description") or f"Spielgerät {fid}",
                             "checks": checks, "not_to_be_checked": bool(props.get("notToBeChecked")),
-                            "cannot_be_checked": bool(props.get("cannotBeChecked"))})
+                            "cannot_be_checked": bool(props.get("cannotBeChecked")),
+                            "cannot_reason": props.get("cannotBeCheckedReason") or "",
+                            "type_name": (props.get("type") or {}).get("name") or "",
+                            "standard": (props.get("type") or {}).get("standard") or "",
+                            "supplier": props.get("supplier") or "",
+                            "coordinates": (item.get("geometry") or {}).get("coordinates") or [],
+                            "history_last": props.get("lastInspectionReports") or [],
+                            "history_previous": props.get("nextToLastInspectionReports") or []})
     if not devices or len(devices) > 300 or len({d["fid"] for d in devices}) != len(devices):
         return _render(request, "error.html", {"message": "Keine gültige Geräteliste verfügbar.", "private": True}, status=400)
     context = {"name": name, "kind": kind, "devices": devices, "private": True, "user": user,
@@ -346,7 +353,9 @@ def inspection_editor(request):
         if device["not_to_be_checked"]:
             continue
         if device["cannot_be_checked"]:
-            return form_failure("Ein nicht prüfbares Spielgerät muss zuerst in den Stammdaten bearbeitet werden.")
+            if not device["cannot_reason"].strip():
+                return form_failure("Für ein nicht prüfbares Spielgerät muss eine Begründung hinterlegt sein.")
+            continue
         for criterion in device["checks"]:
             i = criterion["index"]
             key = f"{fid}_{i}"

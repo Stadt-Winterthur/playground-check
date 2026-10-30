@@ -1,0 +1,17 @@
+/* Native responsive inspection workflow; no changes to global CSS. */
+.inspection-chooser[hidden],.inspection-submit[hidden],[data-inspection-current][hidden],[data-inspection-history][hidden]{display:none!important}
+.inspection-chooser-list{display:grid;grid-template-columns:1fr;gap:1rem}
+.inspection-choose-row{background:white;border:1px solid #dce4ec;border-radius:13px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.inspection-choose-device{display:flex;flex-direction:column;align-items:stretch;border:0;border-radius:0;padding:0;flex:1;min-width:0}
+.inspection-choice-photo{display:block;aspect-ratio:16/9;overflow:hidden;background:#f1f5f7}
+.inspection-choice-photo img{width:100%;height:100%;object-fit:cover}
+.inspection-choice-name{display:grid;gap:.25rem;padding:.85rem}.inspection-choice-name small{color:#56667b}.inspection-open-label{color:#005b8f;text-decoration:underline;font-weight:600}
+.inspection-choose-row>[data-inspection-chip],.inspection-choose-row>.inspection-device-chip{align-self:flex-end;margin:.25rem .85rem .85rem}
+.inspection-choose-row button:focus-visible{outline:3px solid #005b8f;outline-offset:-3px}
+.inspection-device{background:#fff;border:1px solid #dee6eb;border-radius:14px;padding:1rem;margin:1rem 0}.inspection-back{margin:.75rem 0 1.15rem}
+.inspection-device-meta{display:flex;flex-wrap:wrap;gap:1rem}.inspection-device-meta p{margin:.3rem 0}
+.inspection-device-tabs{display:flex;gap:.35rem;flex-wrap:wrap;margin:1rem 0;border-bottom:1px solid #dae2e9}.inspection-device-tabs button{background:transparent;color:#12324a;border:0;border-radius:0;border-bottom:3px solid transparent;padding:.65rem .5rem}.inspection-device-tabs button.is-active{border-bottom-color:#d00;font-weight:700}
+.inspection-history-card{border:1px solid #dbe4e8;border-radius:8px;padding:1rem;margin:.6rem 0;overflow-wrap:anywhere}
+.inspection-submit{padding:1rem;background:white;border:1px solid #dae3e9;border-radius:14px;margin-top:1rem}.inspection-submit button:disabled{opacity:.55;cursor:not-allowed}
+@media(min-width:680px){.inspection-chooser-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1120px){.inspection-chooser-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
