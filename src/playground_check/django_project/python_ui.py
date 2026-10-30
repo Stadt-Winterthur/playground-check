@@ -37,7 +37,7 @@ def _prefix(request):
 
 def _render(request, template, data=None, *, status=200, partial=False):
     route = request.path.split("/__ui/", 1)[-1].split("/", 1)[0] if "/__ui/" in request.path else ""
-    nav = {"": "home", "workspace": "home", "assigned": "inspections" if request.GET.get("inspectiontype") else "devices", "detail": "inspections" if request.GET.get("inspectiontype") else "devices", "inspection": "inspections", "defects": "defects", "defect": "defects", "admin": "users", "device": "devices"}.get(route, "")
+    nav = {"": "home", "workspace": "home", "assigned": "inspections" if request.GET.get("inspectiontype") or request.GET.get("mode") == "inspection" else "devices", "detail": "inspections" if request.GET.get("inspectiontype") else "devices", "inspection": "inspections", "defects": "defects", "defect": "defects", "admin": "users", "device": "devices"}.get(route, "")
     values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", "active_nav": nav, "local_htmx_available": (Path(__file__).resolve().parents[1] / "static/vendor/htmx.min.js").is_file(), **(data or {})}
     if values.get("private") and "role" not in values:
         # Role information must be derived from the already validated identity.
@@ -130,13 +130,29 @@ def assigned_playgrounds(request):
     if denied: return denied
     query = (request.GET.get("q") or "").strip()[:120]
     inspection_type = (request.GET.get("inspectiontype") or "").strip()[:100]
+    inspection_mode = request.GET.get("mode") == "inspection" or bool(inspection_type)
     try:
-        rows = playground_only_names_data(user, {"inspectiontype": inspection_type})
+        # Do not expose the unrestricted list as an inspection choice.
+        rows = (playground_only_names_data(user, {"inspectiontype": inspection_type})
+                if inspection_type or not inspection_mode else [])
     except Exception:
         LOGGER.exception("Could not load assigned playgrounds")
         return _render(request, "error.html", {"message": "Spielplätze können derzeit nicht geladen werden.", "private": True}, status=503)
     found = [x for x in rows if query.casefold() in str(x.get("name") or "").casefold()][:200]
-    context = {"rows": found, "query": query, "inspection_type": inspection_type, "user": user, "private": True}
+    # Use the exact DB identifiers (e.g. "Visuelle Inspektion (VI)").
+    # A blank type denotes the read-only overview, not inspection eligibility.
+    type_choices = []
+    if request.headers.get("HX-Request") != "true":
+        try:
+            from playground_check.remaining_reads_repository import inspection_type_rows
+            with connect() as db:
+                type_choices = [f"{item['value']} ({item['short_value']})"
+                                for item in inspection_type_rows(db)]
+        except Exception:
+            LOGGER.exception("Could not load inspection type selector")
+    context = {"rows": found, "query": query, "inspection_type": inspection_type,
+               "inspection_types": type_choices, "inspection_mode": inspection_mode,
+               "user": user, "private": True}
     partial = request.headers.get("HX-Request") == "true"
     return _render(request, "assigned_rows.html" if partial else "assigned.html", context, partial=partial)
 
@@ -158,7 +174,20 @@ def playground_detail(request):
     except Exception:
         LOGGER.exception("Could not load playground detail")
         return _render(request, "error.html", {"message": "Spielplatzdetails sind derzeit nicht verfügbar.", "private": True}, status=503)
-    return _render(request, "detail.html", {"playground": payload, "kind": kind, "private": True, "user": user})
+    # A general playground listing is never an inspection authorization.
+    # An explicit type must match an assignment for the authenticated user.
+    can_inspect = False
+    if kind and user.get("role") in {"inspector", "administrator"} and not payload.get("inspectionSuspended"):
+        try:
+            eligible = playground_only_names_data(user, {"inspectiontype": kind})
+            can_inspect = any(
+                row.get("name") == name and not row.get("inspectionSuspended")
+                for row in eligible
+            ) and kind in (payload.get("inspectionTypeOptions") or [])
+        except Exception:
+            LOGGER.exception("Could not establish inspection eligibility for detail")
+    return _render(request, "detail.html", {"playground": payload, "kind": kind,
+                                            "can_inspect": can_inspect, "private": True, "user": user})
 
 
 @require_GET

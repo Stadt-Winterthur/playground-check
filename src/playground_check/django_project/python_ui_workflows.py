@@ -12,6 +12,7 @@ from http.cookies import CookieError, SimpleCookie
 from functools import wraps
 
 from django.http import HttpResponse, HttpResponseRedirect
+from django.utils.http import urlencode
 from django.middleware.csrf import get_token
 from django.test import RequestFactory
 from django.views.decorators.csrf import csrf_protect
@@ -299,6 +300,8 @@ def playdevice_photo(request):
         return ui._render(request, 'device_photo.html', {
             'fid': selected_fid, 'private': True, 'user': user,
             'csrf_token_value': get_token(request),
+            'name': (source.get('name') or '').strip()[:200],
+            'kind': (source.get('inspectiontype') or '').strip()[:100],
         })
     failure = _check_post(request, 8_000_000)
     if failure is not None: return failure
@@ -321,7 +324,21 @@ def playdevice_photo(request):
                        {'data': image_data}, method='put', url=f'/Playdevice/?fid={fid}',
                        )
     # Native picture command reads fid from the query string.
-    return _outcome(request, response, 'Bild aktualisiert.')
+    try:
+        answer = json.loads(response.content)
+    except (ValueError, TypeError):
+        answer = {}
+    if response.status_code != 200 or (isinstance(answer, dict) and answer.get('errorMessage')):
+        return _outcome(request, response, 'Bild aktualisiert.')
+    # Post/Redirect/Get: refreshing the picture editor never repeats a photo upload.
+    name = (request.POST.get('name') or '').strip()[:200]
+    kind = (request.POST.get('inspectiontype') or '').strip()[:100]
+    target = '/__ui/detail/' if name else '/__ui/assigned/'
+    query = ('?' + urlencode({'name': name, 'inspectiontype': kind})) if name else ''
+    redirect = HttpResponse(status=303)
+    redirect['Location'] = ui._prefix(request) + target + query
+    redirect['Cache-Control'] = 'no-store'
+    return redirect
 
 
 @require_http_methods(['GET'])
@@ -331,15 +348,24 @@ def playdevice_map(request):
     try:
         x, y = float(request.GET.get('x') or 0), float(request.GET.get('y') or 0)
         if not (2_400_000 <= x <= 2_900_000 and 1_000_000 <= y <= 1_400_000):
-            raise ValueError('coordinates')
+            return HttpResponse('Ungueltige Koordinaten.', status=400)
+    except (TypeError, ValueError):
+        return HttpResponse('Ungueltige Koordinaten.', status=400)
+    try:
         from playground_check.map_image_queries import map_image_base64
         decoded = base64.b64decode(map_image_base64({'x': str(x), 'y': str(y)}), validate=True)
-        if not decoded.startswith(b'\x89PNG\r\n\x1a\n') or len(decoded) > 5_000_000:
-            raise ValueError('map image')
+        if len(decoded) > 5_000_000:
+            raise ValueError('oversized upstream image')
+        if decoded.startswith(b'\x89PNG\r\n\x1a\n'):
+            mime = 'image/png'
+        elif decoded.startswith(b'\xff\xd8\xff'):
+            mime = 'image/jpeg'
+        else:
+            raise ValueError('non-image upstream response (WMS error or access denied)')
     except Exception:
-        LOG.warning('Map image unavailable for device', exc_info=True)
-        return HttpResponse(status=404)
-    response = HttpResponse(decoded, content_type='image/png')
+        LOG.warning('WMS upstream failed (check PLAYGROUND_WMS_URL and WMS access)', exc_info=True)
+        return HttpResponse('Kartendienst derzeit nicht verfuegbar.', status=502)
+    response = HttpResponse(decoded, content_type=mime)
     response['Cache-Control'] = 'private, max-age=120'
     response['X-Content-Type-Options'] = 'nosniff'
     return response
