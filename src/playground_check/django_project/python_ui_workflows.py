@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from http.cookies import CookieError, SimpleCookie
 from functools import wraps
 
 from django.http import HttpResponse, HttpResponseRedirect
@@ -79,9 +80,24 @@ def login(request):
         return ui._render(request, 'gui_login.html', {'csrf_token_value': get_token(request), 'error': 'Anmeldung fehlgeschlagen.'}, status=401)
     next_url = ui._prefix(request) + '/__ui/workspace/'
     result = HttpResponseRedirect(next_url)
-    # Forward only the validated auth cookie set by the existing login command.
-    for key, cookie in answer.cookies.items():
-        result.cookies[key] = cookie
+    # The existing account command returns Set-Cookie as an HTTP header.
+    # Django's HttpResponse.cookies is NOT populated by response['Set-Cookie'].
+    # Copy only the expected auth cookie; never forward unrelated headers/cookies.
+    cookie_name = account_commands.service.settings.auth_cookie_name
+    cookie = answer.cookies.get(cookie_name)
+    if cookie is None:
+        try:
+            parsed = SimpleCookie()
+            parsed.load(answer.get('Set-Cookie', ''))
+            cookie = parsed.get(cookie_name)
+        except CookieError:
+            cookie = None
+    if cookie is None or not cookie.value:
+        LOG.error('Successful native login did not provide an auth cookie')
+        return ui._render(request, 'error.html', {
+            'message': 'Anmeldung technisch fehlgeschlagen. Bitte Administrator kontaktieren.',
+        }, status=502)
+    result.cookies[cookie_name] = cookie
     result['Cache-Control'] = 'no-store'
     return result
 
