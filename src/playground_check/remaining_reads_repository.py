@@ -159,7 +159,7 @@ def gui_playground_page(db: Connection, user: Mapping[str, Any] | None, inspecti
     return db.execute(sql, params).fetchall()
 
 
-def gui_defect_page(db: Connection, query: str, state: str, offset: int, limit: int) -> list[Mapping[str, Any]]:
+def gui_defect_page(db: Connection, query: str, state: str, offset: int, limit: int, priority: int | None = None) -> list[Mapping[str, Any]]:
     """Page defects in SQL; filter applies to all rows, not just the loaded subset."""
     like = '%' + query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
     sql = """SELECT * FROM (
@@ -195,6 +195,7 @@ SELECT
     WHERE (%s = 'all' OR (%s = 'open' AND done_by IS NULL) OR (%s = 'done' AND done_by IS NOT NULL))
       AND (playground_name ILIKE %s ESCAPE '\' OR playdevice_type ILIKE %s ESCAPE '\'
            OR description ILIKE %s ESCAPE '\' OR responsible_user_name ILIKE %s ESCAPE '\')
+      AND (%s IS NULL OR priority = %s)
     ORDER BY (done_by IS NOT NULL), date_creation, playground_name, playdevice_type, tid
     LIMIT %s OFFSET %s"""
-    return db.execute(sql, (state, state, state, like, like, like, like, limit, offset)).fetchall()
+    return db.execute(sql, (state, state, state, like, like, like, like, priority, priority, limit, offset)).fetchall()

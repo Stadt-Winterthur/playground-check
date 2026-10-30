@@ -1,1 +1,2 @@
-<div id="defect-pages">{% include "defects_rows.html" %}</div>
+<div class="defect-result-summary" role="status">Seite {{ page }} · {% if rows %}{{ rows|length }} Mängel auf dieser Seite{% else %}Keine Mängel{% endif %}{% if has_next %} · Weitere Ergebnisse vorhanden{% endif %}</div>
+{% include "defects_rows.html" %}

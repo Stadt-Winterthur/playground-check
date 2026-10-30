@@ -215,14 +215,19 @@ def defects(request):
         page = max(1, min(10000, int(request.GET.get("page", "1"))))
     except (TypeError, ValueError):
         page = 1
+    priority_raw = (request.GET.get("priority") or "").strip()
+    priority = int(priority_raw) if priority_raw in {"1", "2", "3"} else None
     size = 20
     try:
         with connect() as db:
-            raw = gui_defect_page(db, query, state, (page - 1) * size, size + 1)
+            if priority is None:
+                raw = gui_defect_page(db, query, state, (page - 1) * size, size + 1)
+            else:
+                raw = gui_defect_page(db, query, state, (page - 1) * size, size + 1, priority=priority)
     except Exception:
         LOGGER.exception("Could not load defect overview")
         return _render(request, "error.html", {"message": "Mängel sind derzeit nicht verfügbar.", "private": True}, status=503)
-    data = {"rows": [dict(item) for item in raw[:size]], "query": query, "state": state,
+    data = {"rows": [dict(item) for item in raw[:size]], "query": query, "state": state, "priority": priority_raw if priority is not None else "",
             "page": page, "next": page + 1, "has_next": len(raw) > size,
             "user": user, "private": True}
     partial = request.headers.get("HX-Request") == "true"
