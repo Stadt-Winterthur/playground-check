@@ -1,8 +1,4 @@
-"""Opt-in Django template GUI. Read-only views reuse the established repositories.
-
-The old SPA must remain available until browser functionality and offline sync have
-been rebuilt and acceptance-tested. Never expose private data to unauthenticated users.
-"""
+"""Native Django template GUI backed by the established repositories."""
 from __future__ import annotations
 
 import logging

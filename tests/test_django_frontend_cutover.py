@@ -27,11 +27,10 @@ class DjangoFrontendCutover(unittest.TestCase):
         body = b"".join(wsgi.application(env, start_response))
         return captured["status"], captured["headers"], body
 
-    def test_spa_deep_link(self):
+    def test_legacy_defect_bookmark_redirects_to_native_ui(self):
         status, headers, body = self.call("/defect/267566/1772")
-        self.assertEqual(status, 200)
-        self.assertIn("Content-Security-Policy", headers)
-        self.assertIn(b"<html", body.lower())
+        self.assertEqual(status, 302)
+        self.assertIn("/__ui/defect/?tid=1772", headers["Location"])
 
     def test_swagger_and_static(self):
         for route in ("/swagger", "/swagger/index.html", "/swagger/v1/swagger.json",
@@ -41,5 +40,10 @@ class DjangoFrontendCutover(unittest.TestCase):
     def test_static_traversal_rejected(self):
         self.assertEqual(self.call("/static/../templates/index.html")[0], 404)
 
-    def test_other_spa_url(self):
-        self.assertEqual(self.call("/a-client-route")[0], 200)
+    def test_unknown_urls_are_not_spa_routes(self):
+        self.assertEqual(self.call("/a-client-route")[0], 404)
+
+    def test_root_opens_native_ui_and_legacy_assets_gone(self):
+        self.assertEqual(self.call("/")[1]["Location"], "/__ui/")
+        self.assertEqual(self.call("/static/js/app.js")[0], 404)
+        self.assertEqual(self.call("/static/css/app.css")[0], 404)

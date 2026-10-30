@@ -1,65 +1,41 @@
-const CACHE='spielplatzkontrolle-2026.11';
-const BASE_PATH=new URL(self.registration.scope).pathname.replace(/\/$/,'');
-const scoped=path=>`${BASE_PATH}${path}`||'/';
-const APP_SHELL=[
-  scoped('/'),
-  scoped('/static/assets/favicon.ico'),
-  scoped('/static/manifest.webmanifest'),
-  scoped('/static/css/app.css'),
-  scoped('/static/js/app.js')
-];
-
-self.addEventListener('install',event=>event.waitUntil(
-  caches.open(CACHE).then(cache=>cache.addAll(APP_SHELL))
+// Push-only service worker for the native Django UI. Never cache private HTML.
+const BASE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, '');
+const scoped = path => `${BASE_PATH}${path}` || '/';
+self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
+self.addEventListener('activate', event => event.waitUntil(
+  Promise.all([
+    caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('spielplatzkontrolle-')).map(key => caches.delete(key)))),
+    self.clients.claim()
+  ])
 ));
-
-self.addEventListener('activate',event=>event.waitUntil(
-  caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key))))
-));
-
-self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET')return;
-  const url=new URL(event.request.url);
-  if(url.origin!==location.origin)return;
-
-  // Angular's application group is prefetched and served cache-first.
-  if(APP_SHELL.includes(url.pathname)){
-    event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request)));
-    return;
+self.addEventListener('push', event => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; } catch (_) {}
+  const notification = payload.notification || payload;
+  const tasks = [];
+  if (notification && notification.title) {
+    tasks.push(self.registration.showNotification(notification.title, {
+      body: notification.body || '', icon: notification.icon, badge: notification.badge,
+      data: notification.data || {}
+    }));
   }
-
-  // The original "assets" group is lazy: cache an asset only after first use.
-  if(url.pathname.startsWith(scoped('/static/assets/'))){
-    event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{
-      if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
-      return response;
-    })));
-    return;
-  }
-
-  // API and arbitrary application requests are intentionally not cached here.
-});
-
-
-self.addEventListener('push',event=>{
-  let payload={};
-  try{payload=event.data?event.data.json():{};}catch{payload={};}
-  const notification=payload.notification||payload;
-  const tasks=[];
-  if(notification&&notification.title){tasks.push(self.registration.showNotification(notification.title,{body:notification.body||'',icon:notification.icon,badge:notification.badge,data:notification.data||{}}));}
-  tasks.push(clients.matchAll({type:'window',includeUncontrolled:true}).then(all=>Promise.all(all.map(client=>client.postMessage({type:'push-message',message:payload})))));
+  tasks.push(clients.matchAll({type: 'window', includeUncontrolled: true}).then(all =>
+    Promise.all(all.map(client => client.postMessage({type: 'push-message', message: payload})))));
   event.waitUntil(Promise.all(tasks));
 });
-
-self.addEventListener('notificationclick',event=>{
+self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const data=event.notification.data||{};
-  let url=data.url||scoped('/defects');
-  if(data.url&&data.url.startsWith('/'))url=scoped(data.url);
-  if(data.defectTid&&data.playdeviceFid)url=scoped(`/defect/${data.playdeviceFid}/${data.defectTid}`);
-  event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async all=>{
-    const target=new URL(url,self.location.origin).href;
-    if(all.length){const client=all[0];if('navigate' in client)await client.navigate(target);return client.focus();}
-    return clients.openWindow?clients.openWindow(target):undefined;
+  const data = event.notification.data || {};
+  let path = '/__ui/defects/';
+  if (data.defectTid) path = '/__ui/defect/?tid=' + encodeURIComponent(data.defectTid);
+  else if (typeof data.url === 'string' && data.url.startsWith('/__ui/')) path = data.url;
+  const target = new URL(scoped(path), self.location.origin).href;
+  event.waitUntil(clients.matchAll({type: 'window', includeUncontrolled: true}).then(async all => {
+    if (all.length) {
+      const client = all[0];
+      if ('navigate' in client) await client.navigate(target);
+      return client.focus();
+    }
+    return clients.openWindow ? clients.openWindow(target) : undefined;
   }));
 });

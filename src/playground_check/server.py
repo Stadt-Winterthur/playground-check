@@ -76,7 +76,6 @@ class Application:
     def __init__(self) -> None:
         self.router = create_router()
         self.static_root = Path(__file__).with_name("static")
-        self.index = Path(__file__).with_name("templates") / "index.html"
 
     def __call__(self, environ, start_response):
         started = time.perf_counter()
@@ -185,53 +184,29 @@ class Application:
             if relative == "sw.js":
                 response.headers.append(("Service-Worker-Allowed", (settings.base_path or "") + "/"))
             return response
-        # `/defect/<playdeviceFid>/<defectTid>` is a client-side SPA route.
-        # It shares the first path segment with the `/Defect` REST API, so a
-        # direct browser request must fall through to index.html instead of
-        # being rejected as an unknown API endpoint.
-        defect_frontend_route = re.fullmatch(r"/defect/\d+/\d+/?", request.path, re.IGNORECASE)
-        if self._is_api_path(request.path) and not defect_frontend_route:
+        if request.method != "GET":
             return Response.text("Not found", 404)
-        if request.method == "GET":
-            app_config = json.dumps(
-                {
-                    "tokenKey": settings.playground_user_token_key,
-                    "playgroundKey": settings.playground_token_key,
-                    "hideInfoCookieName": settings.hide_info_cookie_name,
-                    "basePath": settings.base_path,
-                    "wmsUrl": settings.wms_url,
-                    "features": {
-                        "pushNotifications": settings.push_notifications,
-                    },
-                    "vapidPublicKey": settings.vapid_public_key,
-                },
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ).replace("<", "\\u003c")
-            csp_nonce = secrets.token_urlsafe(18)
-            html = (
-                self.index.read_text(encoding="utf-8")
-                .replace("{{APP_TITLE}}", settings.title)
-                .replace("{{APP_SHORT_TITLE}}", settings.short_title)
-                .replace("{{APP_BASE_PATH}}", settings.base_path)
-                .replace("{{APP_VERSION}}", __version__)
-                .replace("{{APP_CONFIG}}", app_config)
-                .replace("{{SERVICE_WORKER_ENABLED}}", "true" if settings.service_worker_enabled else "false")
-                .replace("{{CSP_NONCE}}", csp_nonce)
-            )
-            response = Response.text(html, 200, "text/html; charset=utf-8")
-            response.headers.append((
-                "Content-Security-Policy",
-                "default-src 'self'; "
-                f"script-src 'self' 'nonce-{csp_nonce}'; "
-                "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data: blob: https: http:; "
-                "connect-src 'self' https: http:; "
-                "worker-src 'self' blob:; "
-                "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
-            ))
-            return response
-        return Response.text("Not found", 404)
+        prefix = settings.base_path or ""
+        defect = re.fullmatch(r"/defect/\d+/(\d+)/?", request.path, re.IGNORECASE)
+        destination = None
+        if defect:
+            destination = f"/__ui/defect/?tid={defect.group(1)}"
+        elif request.path in ("/", "/login", "/login/"):
+            destination = "/__ui/"
+        elif request.path.rstrip("/") == "/users":
+            destination = "/__ui/admin/users/"
+        elif request.path.rstrip("/") == "/defects":
+            destination = "/__ui/defects/"
+        elif request.path.rstrip("/") in ("/assigned", "/playdevices", "/playgrounds"):
+            destination = "/__ui/assigned/"
+        elif request.path.rstrip("/") == "/inspections":
+            destination = "/__ui/assigned/?mode=inspection"
+        if destination is None:
+            return Response.text("Not found", 404)
+        response = Response.text("", 302)
+        response.headers.append(("Location", prefix + destination))
+        response.headers.append(("Cache-Control", "no-store"))
+        return response
 
     @staticmethod
     def _is_api_path(path: str) -> bool:

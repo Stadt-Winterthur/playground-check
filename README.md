@@ -39,7 +39,7 @@ Danach `.env` (insbesondere Datenbank, Security-Key und Salt) anpassen und die D
 ./start.sh
 ```
 
-Lokale URL: `http://127.0.0.1:8010/__ui/` (bei gesetztem `PLAYGROUND_BASE_PATH` mit diesem Präfix). `start.sh` startet Gunicorn mit `playground_check.django_project.wsgi:application`; `python -m playground_check` startet weiterhin den alten Server und ist für die neue Oberfläche ungeeignet.
+Lokale URL: `http://127.0.0.1:8010/__ui/` (bei gesetztem `PLAYGROUND_BASE_PATH` mit diesem Präfix). `start.sh` startet Gunicorn mit `playground_check.django_project.wsgi:application`; `python -m playground_check` startet weiterhin den alten, nicht mehr unterstützten CLI-Webserver; für DEV ausschliesslich `./start.sh` verwenden. Die Start-URL `/` leitet auf `/__ui/` um.
 
 ## Konfiguration
 

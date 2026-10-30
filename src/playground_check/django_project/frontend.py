@@ -1,81 +1,75 @@
-"""Django-owned SPA, static files, Swagger and unknown-path responses.
+"""Django-only browser entry, static resources and API documentation.
 
-The API's legacy method/response fallback remains a separate compatibility concern.
+Legacy SPA routes are redirected to native pages; no legacy HTML is served.
 """
 from __future__ import annotations
 
 import json
 import mimetypes
 import re
-import secrets
 from pathlib import Path
+from urllib.parse import quote, urlencode
 
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 
-from playground_check import __version__
 from playground_check.config import settings
 from playground_check.openapi import build_openapi_document, swagger_ui_html
 
-_PACKAGE = Path(__file__).resolve().parent.parent
-_STATIC = _PACKAGE / "static"
-_INDEX = _PACKAGE / "templates" / "index.html"
+_STATIC = Path(__file__).resolve().parent.parent / 'static'
 _API_PREFIXES = frozenset({
-    "account", "inspection", "collections", "playground", "playdevice",
-    "defect", "document", "pushsubscription", "swagger", "api",
+    'account', 'inspection', 'collections', 'playground', 'playdevice',
+    'defect', 'document', 'pushsubscription', 'swagger', 'api',
 })
 
 
-def frontend(request, path: str = ""):
-    """Serve original browser contracts without dispatching through server.Application."""
-    route = "/" + path.lstrip("/")
-    if route in ("/swagger", "/swagger/"):
-        response = HttpResponse(status=302)
-        response["Location"] = (settings.base_path or "") + "/swagger/index.html"
+def frontend(request, path: str = ''):
+    """Static assets, Swagger and safe redirects; unknown URLs return 404."""
+    route = '/' + path.lstrip('/')
+    prefix = (request.META.get('SCRIPT_NAME') or settings.base_path or '').rstrip('/')
+    if route in ('/swagger', '/swagger/'):
+        response = HttpResponseRedirect(prefix + '/swagger/index.html')
         return response
-    if route == "/swagger/index.html":
-        return HttpResponse(swagger_ui_html(settings.base_path), content_type="text/html; charset=utf-8")
-    if route == "/swagger/v1/swagger.json":
-        return HttpResponse(json.dumps(build_openapi_document(), ensure_ascii=False, separators=(",", ":")),
-                            content_type="application/json; charset=utf-8")
-    if route.startswith("/static/"):
-        target = (_STATIC / route[len("/static/"):]).resolve()
+    if route == '/swagger/index.html':
+        return HttpResponse(swagger_ui_html(prefix), content_type='text/html; charset=utf-8')
+    if route == '/swagger/v1/swagger.json':
+        return HttpResponse(json.dumps(build_openapi_document(), ensure_ascii=False, separators=(',', ':')),
+                            content_type='application/json; charset=utf-8')
+    if route.startswith('/static/'):
+        target = (_STATIC / route[len('/static/'):]).resolve()
         if _STATIC.resolve() not in target.parents or not target.is_file():
-            return HttpResponse("Not found", status=404, content_type="text/plain; charset=utf-8")
-        content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+            return HttpResponse('Not found', status=404, content_type='text/plain; charset=utf-8')
+        content_type = mimetypes.guess_type(str(target))[0] or 'application/octet-stream'
         response = HttpResponse(target.read_bytes(), content_type=content_type)
-        if route == "/static/sw.js":
-            response["Service-Worker-Allowed"] = (settings.base_path or "") + "/"
+        if route == '/static/sw.js':
+            response['Service-Worker-Allowed'] = prefix + '/'
+            response['Cache-Control'] = 'no-cache'
         return response
-    defect_link = re.fullmatch(r"/defect/\d+/\d+/?", route, re.IGNORECASE)
-    if route.lstrip("/").split("/", 1)[0].casefold() in _API_PREFIXES and not defect_link:
-        return HttpResponse("Not found", status=404, content_type="text/plain; charset=utf-8")
-    if request.method != "GET":
-        return HttpResponse("Not found", status=404, content_type="text/plain; charset=utf-8")
-    app_config = json.dumps({
-        "tokenKey": settings.playground_user_token_key,
-        "playgroundKey": settings.playground_token_key,
-        "hideInfoCookieName": settings.hide_info_cookie_name,
-        "basePath": settings.base_path,
-        "wmsUrl": settings.wms_url,
-        "features": {"pushNotifications": settings.push_notifications},
-        "vapidPublicKey": settings.vapid_public_key,
-    }, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
-    nonce = secrets.token_urlsafe(18)
-    html = (_INDEX.read_text(encoding="utf-8")
-            .replace("{{APP_TITLE}}", settings.title)
-            .replace("{{APP_SHORT_TITLE}}", settings.short_title)
-            .replace("{{APP_BASE_PATH}}", settings.base_path)
-            .replace("{{APP_VERSION}}", __version__)
-            .replace("{{APP_CONFIG}}", app_config)
-            .replace("{{SERVICE_WORKER_ENABLED}}", "true" if settings.service_worker_enabled else "false")
-            .replace("{{CSP_NONCE}}", nonce))
-    response = HttpResponse(html, content_type="text/html; charset=utf-8")
-    response["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        f"script-src 'self' 'nonce-{nonce}'; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: blob: https: http:; "
-        "connect-src 'self' https: http:; worker-src 'self' blob:; "
-        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
-    )
-    return response
+    if request.method != 'GET':
+        return HttpResponse('Not found', status=404, content_type='text/plain; charset=utf-8')
+
+    # Old bookmarks and push notification deep links must reach native pages.
+    redirect_to = None
+    defect = re.fullmatch(r'/defect/\d+/(\d+)/?', route, re.IGNORECASE)
+    if defect:
+        redirect_to = '/__ui/defect/?' + urlencode({'tid': defect.group(1)})
+    elif route in ('/', '/users', '/users/', '/login', '/login/'):
+        redirect_to = '/__ui/admin/users/' if route.rstrip('/') == '/users' else '/__ui/'
+    elif route.rstrip('/') in ('/defects', '/assigned', '/inspections', '/playdevices', '/playgrounds'):
+        redirect_to = {
+            '/defects': '/__ui/defects/',
+            '/assigned': '/__ui/assigned/',
+            '/inspections': '/__ui/assigned/?mode=inspection',
+            '/playdevices': '/__ui/assigned/',
+            '/playgrounds': '/__ui/assigned/',
+        }[route.rstrip('/')]
+    else:
+        detail = re.fullmatch(r'/deviceattributes/playdevice/(\d+)/?', route, re.IGNORECASE)
+        if detail:
+            redirect_to = '/__ui/device/edit/?' + urlencode({'fid': detail.group(1)})
+    if redirect_to is not None:
+        response = HttpResponseRedirect(prefix + redirect_to)
+        response['Cache-Control'] = 'no-store'
+        return response
+    if route.lstrip('/').split('/', 1)[0].casefold() in _API_PREFIXES:
+        return HttpResponse('Not found', status=404, content_type='text/plain; charset=utf-8')
+    return HttpResponse('Not found', status=404, content_type='text/plain; charset=utf-8')

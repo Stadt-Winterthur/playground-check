@@ -69,47 +69,30 @@ class ApplicationTest(unittest.TestCase):
 
     def test_spa_static_files_and_health_without_database(self):
         status, body, _ = self.request("GET", "/")
-        self.assertEqual(status, 200)
-        self.assertIn(b"Spielplatzkontrolle", body)
+        self.assertEqual(status, 302)
         status, body, _ = self.request("GET", "/api/health")
         self.assertEqual(body["status"], "ok")
         status, manifest, _ = self.request("GET", "/static/manifest.webmanifest")
         self.assertEqual(manifest["short_name"], "SPK")
 
-    def test_defect_deep_link_is_served_by_spa(self):
+    def test_defect_deep_link_redirects_to_django(self):
         status, body, captured = self.request("GET", "/defect/267566/1772")
-        self.assertEqual(status, 200)
-        self.assertIn(b"Spielplatzkontrolle", body)
-        self.assertIn("text/html", captured["headers"].get("Content-Type", ""))
+        self.assertEqual(status, 302)
+        self.assertEqual(captured["headers"].get("Location"), "/__ui/defect/?tid=1772")
 
         status, body, _ = self.request("GET", "/defect/not-an-api-route")
         self.assertEqual(status, 404)
         self.assertEqual(body, b"Not found")
 
-    def test_frontend_receives_feature_flags_and_vapid_key(self):
-        configured = replace(
-            server_module.settings,
-            push_notifications=True,
-            vapid_public_key="legacy-vapid-key",
-        )
-        with patch.object(server_module, "settings", configured):
-            status, body, captured = self.request("GET", "/")
-        self.assertEqual(status, 200)
-        self.assertIn(b'"pushNotifications":true', body)
-        self.assertNotIn(b'"defectAssignments"', body)
-        self.assertIn(b'"vapidPublicKey":"legacy-vapid-key"', body)
-        self.assertEqual(captured["headers"].get("X-Content-Type-Options"), "nosniff")
-        self.assertEqual(captured["headers"].get("X-Frame-Options"), "DENY")
+    def test_legacy_frontend_redirects_without_serving_spa(self):
+        status, body, captured = self.request("GET", "/")
+        self.assertEqual(status, 302)
+        self.assertEqual(captured["headers"].get("Location"), "/__ui/")
 
-    def test_playdevice_overview_contains_document_controls(self):
-        script = (Path(service.__file__).with_name("static") / "js" / "app.js").read_text(encoding="utf-8")
-        self.assertIn("Abnahmedokumente", script)
-        self.assertIn("Zertifikatsdokumente", script)
-        self.assertIn('data-type="${type}"', script)
-        self.assertIn("renderDocumentBox(pg,'abnahme'", script)
-        self.assertIn("renderDocumentBox(pg,'zertifikat'", script)
-        self.assertIn("downloadPdfDocument", script)
-        self.assertIn("Accept:'application/pdf'", script)
+    def test_document_controls_live_only_in_django_template(self):
+        template = (Path(service.__file__).with_name("django_project") / "ui_templates" / "detail.html").read_text(encoding="utf-8")
+        self.assertIn("Abnahmedokumente", template)
+        self.assertIn("Zertifikatsdokumente", template)
 
     def test_document_endpoint_returns_acceptance_and_certificate_pdfs(self):
         class Result:
@@ -229,14 +212,13 @@ class ApplicationTest(unittest.TestCase):
             )
             self.assertEqual(status, 401)
 
-    def test_document_buttons_use_names_and_truncate_after_eight_characters(self):
-        script = (Path(service.__file__).with_name("static") / "js" / "app.js").read_text(encoding="utf-8")
-        self.assertIn("value.length>8", script)
-        self.assertIn("value.slice(0,8)", script)
-        self.assertIn("document-upload", script)
-        self.assertIn("doc-rename", script)
-        self.assertIn("doc-delete", script)
-        self.assertIn("state.user?.role==='administrator'", script)
+    def test_document_management_uses_native_django_template(self):
+        template = (Path(service.__file__).with_name("django_project") / "ui_templates" / "detail.html").read_text(encoding="utf-8")
+        self.assertIn('name="action" value="upload"', template)
+        self.assertIn('name="action" value="rename"', template)
+        self.assertIn('name="action" value="delete"', template)
+        self.assertIn('name="documentType" value="abnahme"', template)
+        self.assertIn('name="documentType" value="zertifikat"', template)
 
     def test_document_delete_is_admin_only_and_deletes_database_row(self):
         class Result:
@@ -376,9 +358,9 @@ class ApplicationTest(unittest.TestCase):
     def test_configured_path_base_is_stripped_for_routing_and_exposed_to_frontend(self):
         configured = replace(server_module.settings, base_path="/stadtgruen/spielplatzkontrolle")
         with patch.object(server_module, "settings", configured):
-            status, body, _ = self.request("GET", "/stadtgruen/spielplatzkontrolle/")
-            self.assertEqual(status, 200)
-            self.assertIn(b'"basePath":"/stadtgruen/spielplatzkontrolle"', body)
+            status, _, captured = self.request("GET", "/stadtgruen/spielplatzkontrolle/")
+            self.assertEqual(status, 302)
+            self.assertEqual(captured["headers"].get("Location"), "/stadtgruen/spielplatzkontrolle/__ui/")
 
             status, result, _ = self.request("GET", "/stadtgruen/spielplatzkontrolle/api/health")
             self.assertEqual(status, 200)
@@ -393,8 +375,8 @@ class ApplicationTest(unittest.TestCase):
         self.assertIn(b"keine zugriffsberechtigung", body.lower())
 
         status, body, _ = self.request("GET", "/defects-client-route")
-        self.assertEqual(status, 200)
-        self.assertIn(b"Spielplatzkontrolle", body)
+        self.assertEqual(status, 404)
+        self.assertEqual(body, b"Not found")
 
     def test_known_api_path_with_wrong_method_returns_405(self):
         status, body, captured = self.request("GET", "/account/login")

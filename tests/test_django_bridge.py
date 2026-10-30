@@ -51,10 +51,10 @@ class DjangoBridgeTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(set(json.loads(body)), {"status", "version"})
 
-    def test_legacy_spa_stays_unchanged(self):
+    def test_legacy_deep_link_redirects_to_native_view(self):
         from playground_check.django_project import wsgi
 
         with patch.object(wsgi, "legacy_settings", replace(wsgi.legacy_settings, base_path="")):
             status, body, _ = self.request("/defect/267566/1772")
-        self.assertEqual(status, 200)
-        self.assertIn(b"Spielplatzkontrolle", body)
+        self.assertEqual(status, 302)
+        self.assertEqual(_["Location"], "/__ui/defect/?tid=1772")

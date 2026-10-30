@@ -1,4 +1,4 @@
-"""Explicit Django API routes; unmigrated requests retain legacy WSGI."""
+"""Native Django UI, API endpoints and compatibility redirects."""
 
 from django.urls import path, re_path
 from .frontend import frontend
