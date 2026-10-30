@@ -492,6 +492,7 @@ def defect_detail(request):
                 return fail("Die Änderung wurde abgelehnt. Bitte Angaben und Berechtigung prüfen.", 409)
             return HttpResponseRedirect(_prefix(request) + f"/__ui/defect/?tid={tid}&saved={action}")
         except (ValueError, TypeError):
+            LOGGER.exception("Defect detail input processing failed: tid=%s action=%s", tid, action)
             return fail("Ungültige Eingabe.")
         except Exception:
             LOGGER.exception("Defect detail action failed")
