@@ -1,11 +1,156 @@
-<div class="page-heading"><p class="eyebrow">Spielplatz</p><h1>{{ playground.name }}</h1>{% if playground.address %}<p>{{ playground.address }}</p>{% endif %}</div>
+<div class="page-heading">
+  <p class="eyebrow">Spielplatz</p>
+  <h1>{{ playground.name }}</h1>
+  {% if playground.address %}<p>{{ playground.address }}</p>{% endif %}
+</div>
 {% if playground.inspectionSuspended %}<div class="notice warning" role="status">Inspektionen sind für diesen Spielplatz derzeit ausgesetzt.</div>{% endif %}
-<div class="context-actions">{% if can_inspect %}<a class="primary-button" href="{{ prefix }}/__ui/inspection/?name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Inspektion starten</a>{% endif %}<a class="secondary-button" href="{{ prefix }}/__ui/defects/">Mängelübersicht</a></div>
-{% if playground.documentsOfAcceptance or playground.certificateDocuments %}
-<section class="playground-documents" aria-label="Dokumente zum Spielplatz">
-{% if playground.documentsOfAcceptance %}<div class="document-group"><h2>Abnahmedokumente</h2><ul>{% for doc in playground.documentsOfAcceptance %}<li><a href="{{ prefix }}/Document/{{ doc.fid }}/?type=abnahme">{{ doc.name|default:'Abnahmedokument' }}</a></li>{% endfor %}</ul></div>{% endif %}
-{% if playground.certificateDocuments %}<div class="document-group"><h2>Zertifikatsdokumente</h2><ul>{% for doc in playground.certificateDocuments %}<li><a href="{{ prefix }}/Document/{{ doc.fid }}/?type=zertifikat">{{ doc.name|default:'Zertifikat' }}</a></li>{% endfor %}</ul></div>{% endif %}
-</section>{% endif %}
+{% if can_inspect %}<div class="context-actions"><a class="primary-button" href="{{ prefix }}/__ui/inspection/?name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Inspektion starten</a></div>{% endif %}
+
+<section id="documents" class="playground-document-board" aria-label="Dokumente zum Spielplatz">
+  <div class="document-board-head">
+    <div>
+      <p class="eyebrow">Dokumente</p>
+      <h2>Abnahmen und Zertifikate</h2>
+      <p class="muted">PDF-Dokumente zentral verwalten und direkt beim Spielplatz ablegen.</p>
+    </div>
+  </div>
+  {% if flash_notice %}<div class="notice success" role="status">{{ flash_notice }}</div>{% endif %}
+  {% if flash_error %}<div class="notice error" role="alert">{{ flash_error }}</div>{% endif %}
+  <div class="document-panel-grid">
+    <section class="document-panel">
+      <div class="document-panel-head">
+        <div>
+          <h3>Abnahmedokumente</h3>
+          <p class="muted">Relevante Abnahmen und Freigaben zum Spielplatz.</p>
+        </div>
+        <span class="status">{{ playground.documentsOfAcceptance|length }}</span>
+      </div>
+      {% if playground.documentsOfAcceptance %}
+      <ul class="document-list">
+        {% for doc in playground.documentsOfAcceptance %}
+        <li class="document-item-row">
+          <div class="document-item-main">
+            <a class="document-link" href="{{ prefix }}/Document/{{ doc.fid }}/?type=abnahme">{{ doc.name|default:'Abnahmedokument' }}</a>
+            <span class="muted">PDF · ID {{ doc.fid }}</span>
+          </div>
+          {% if is_admin %}
+          <details class="document-item-actions">
+            <summary>Verwalten</summary>
+            <div class="document-admin-stack">
+              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-inline-form">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+                <input type="hidden" name="action" value="rename">
+                <input type="hidden" name="documentType" value="abnahme">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <label class="field grow"><span>Dokumentname</span><input type="text" name="documentName" value="{{ doc.name }}" maxlength="255" required></label>
+                <button type="submit" class="secondary-button">Umbenennen</button>
+              </form>
+              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-delete-form">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="documentType" value="abnahme">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <button type="submit" class="danger-button">Löschen</button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state compact">Noch keine Abnahmedokumente vorhanden.</p>
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" action="{{ prefix }}/__ui/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+        <input type="hidden" name="action" value="upload">
+        <input type="hidden" name="documentType" value="abnahme">
+        <input type="hidden" name="playgroundId" value="{{ playground.id }}">
+        <input type="hidden" name="name" value="{{ playground.name }}">
+        <input type="hidden" name="inspectiontype" value="{{ kind }}">
+        <h4>Weiteres Dokument hochladen</h4>
+        <div class="document-upload-grid">
+          <label class="field grow"><span>Anzeigename</span><input type="text" name="documentName" maxlength="255" placeholder="z. B. Schlussabnahme 2026"></label>
+          <label class="field grow"><span>PDF-Datei</span><input type="file" name="document" accept="application/pdf,.pdf" required></label>
+        </div>
+        <button type="submit" class="primary-button">Abnahmedokument hochladen</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="document-panel">
+      <div class="document-panel-head">
+        <div>
+          <h3>Zertifikatsdokumente</h3>
+          <p class="muted">Zertifikate, Herstellerfreigaben und Prüfdokumente.</p>
+        </div>
+        <span class="status">{{ playground.certificateDocuments|length }}</span>
+      </div>
+      {% if playground.certificateDocuments %}
+      <ul class="document-list">
+        {% for doc in playground.certificateDocuments %}
+        <li class="document-item-row">
+          <div class="document-item-main">
+            <a class="document-link" href="{{ prefix }}/Document/{{ doc.fid }}/?type=zertifikat">{{ doc.name|default:'Zertifikat' }}</a>
+            <span class="muted">PDF · ID {{ doc.fid }}</span>
+          </div>
+          {% if is_admin %}
+          <details class="document-item-actions">
+            <summary>Verwalten</summary>
+            <div class="document-admin-stack">
+              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-inline-form">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+                <input type="hidden" name="action" value="rename">
+                <input type="hidden" name="documentType" value="zertifikat">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <label class="field grow"><span>Dokumentname</span><input type="text" name="documentName" value="{{ doc.name }}" maxlength="255" required></label>
+                <button type="submit" class="secondary-button">Umbenennen</button>
+              </form>
+              <form method="post" action="{{ prefix }}/__ui/detail/documents/" class="document-delete-form">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="documentType" value="zertifikat">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <button type="submit" class="danger-button">Löschen</button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state compact">Noch keine Zertifikatsdokumente vorhanden.</p>
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" action="{{ prefix }}/__ui/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
+        <input type="hidden" name="action" value="upload">
+        <input type="hidden" name="documentType" value="zertifikat">
+        <input type="hidden" name="playgroundId" value="{{ playground.id }}">
+        <input type="hidden" name="name" value="{{ playground.name }}">
+        <input type="hidden" name="inspectiontype" value="{{ kind }}">
+        <h4>Weiteres Dokument hochladen</h4>
+        <div class="document-upload-grid">
+          <label class="field grow"><span>Anzeigename</span><input type="text" name="documentName" maxlength="255" placeholder="z. B. Herstellerzertifikat"></label>
+          <label class="field grow"><span>PDF-Datei</span><input type="file" name="document" accept="application/pdf,.pdf" required></label>
+        </div>
+        <button type="submit" class="primary-button">Zertifikat hochladen</button>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+</section>
+
 <h2>Spielgeräte <span class="muted">({{ playground.playdevices|length }})</span></h2>
 <div class="device-grid">{% for device in playground.playdevices %}{% with p=device.properties %}
 <article class="device-card">

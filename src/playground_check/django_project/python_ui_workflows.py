@@ -43,7 +43,14 @@ def _guard(request, role=None):
 
 
 def _check_post(request, max_size=400000):
-    if request.content_type not in ('application/x-www-form-urlencoded', 'multipart/form-data') or len(request.body) > max_size:
+    # CSRF middleware may have parsed multipart form data already. Accessing
+    # request.body then raises RawPostDataException; use the HTTP length instead.
+    try:
+        length = int(request.META.get('CONTENT_LENGTH') or 0)
+    except (TypeError, ValueError):
+        length = -1
+    if (request.content_type not in ('application/x-www-form-urlencoded', 'multipart/form-data')
+            or length < 0 or length > max_size):
         return ui._render(request, 'error.html', {'message': 'Ungültige oder zu grosse Eingabe.', 'private': True}, status=400)
     return None
 
@@ -63,6 +70,20 @@ def _outcome(request, response, success):
         LOG.warning('GUI command rejected (HTTP %s)', response.status_code)
         return ui._render(request, 'error.html', {'message': 'Speichern nicht möglich. Bitte Eingaben und Berechtigung prüfen.', 'private': True}, status=400)
     return ui._render(request, 'workflow_success.html', {'message': success, 'private': True})
+
+
+def _detail_redirect(request, name, kind='', *, notice='', error=''):
+    params = {'name': (name or '')[:200]}
+    if kind:
+        params['inspectiontype'] = kind[:100]
+    if notice:
+        params['notice'] = notice[:180]
+    if error:
+        params['error'] = error[:180]
+    response = HttpResponse(status=303)
+    response['Location'] = ui._prefix(request) + '/__ui/detail/?' + urlencode(params) + '#documents'
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 @csrf_protect
@@ -265,6 +286,80 @@ def document_editor(request):
     payload = {'playgroundId':playground_id,'type':request.POST.get('type','')[:50],
                'name':request.POST.get('name','')[:255], 'contentBase64':base64.b64encode(content).decode('ascii')}
     return _outcome(request, _native(request, document_commands.create_document, payload, url='/Document/'), 'Dokument hochgeladen.')
+
+
+@csrf_protect
+@require_http_methods(['POST'])
+def playground_document_action(request):
+    user, error = _guard(request, {'administrator'})
+    if error is not None: return error
+    failed = _check_post(request, 22_000_000)
+    if failed is not None: return failed
+    name = (request.POST.get('name') or '').strip()[:200]
+    kind = (request.POST.get('inspectiontype') or '').strip()[:100]
+    if not name:
+        return ui._render(request, 'error.html', {'message': 'Spielplatzname fehlt.', 'private': True}, status=400)
+    action = (request.POST.get('action') or '').strip().lower()
+    document_type = (request.POST.get('documentType') or '').strip().lower()
+    if document_type not in {'abnahme', 'zertifikat'}:
+        return _detail_redirect(request, name, kind, error='Ungültiger Dokumenttyp.')
+    if action == 'upload':
+        uploaded = request.FILES.get('document')
+        if not uploaded or uploaded.size > 20_000_000:
+            return _detail_redirect(request, name, kind, error='PDF fehlt oder ist zu gross.')
+        content = uploaded.read()
+        if not content.startswith(b'%PDF-'):
+            return _detail_redirect(request, name, kind, error='Es können nur PDF-Dateien hochgeladen werden.')
+        try:
+            playground_id = int(request.POST.get('playgroundId') or 0)
+        except ValueError:
+            playground_id = 0
+        doc_name = (request.POST.get('documentName') or '').strip()[:255]
+        if not doc_name:
+            doc_name = (uploaded.name or 'Dokument').rsplit('.', 1)[0][:255]
+        payload = {
+            'playgroundId': playground_id,
+            'type': document_type,
+            'name': doc_name,
+            'contentBase64': base64.b64encode(content).decode('ascii'),
+        }
+        response = _native(request, document_commands.create_document, payload, url='/Document/')
+        try:
+            data = json.loads(response.content)
+        except (ValueError, TypeError):
+            data = {}
+        if response.status_code != 200 or (isinstance(data, dict) and data.get('errorMessage')):
+            return _detail_redirect(request, name, kind, error=(data.get('errorMessage') if isinstance(data, dict) else '') or 'Dokument konnte nicht gespeichert werden.')
+        return _detail_redirect(request, name, kind, notice='Dokument erfolgreich hochgeladen.')
+    try:
+        document_fid = int(request.POST.get('documentFid') or 0)
+    except ValueError:
+        document_fid = 0
+    if document_fid <= 0:
+        return _detail_redirect(request, name, kind, error='Ungültige Dokument-ID.')
+    if action == 'rename':
+        doc_name = (request.POST.get('documentName') or '').strip()[:255]
+        response = _native(request, document_commands.rename_document,
+                           {'name': doc_name}, url=f'/Document/{document_fid}/Name/?type={document_type}',
+                           kwargs={'fid': document_fid})
+        try:
+            data = json.loads(response.content)
+        except (ValueError, TypeError):
+            data = {}
+        if response.status_code != 200 or (isinstance(data, dict) and data.get('errorMessage')):
+            return _detail_redirect(request, name, kind, error=(data.get('errorMessage') if isinstance(data, dict) else '') or 'Dokumentname konnte nicht gespeichert werden.')
+        return _detail_redirect(request, name, kind, notice='Dokumentname gespeichert.')
+    if action == 'delete':
+        response = _native(request, document_commands.delete_document, {}, method='delete',
+                           url=f'/Document/{document_fid}/?type={document_type}', kwargs={'fid': document_fid})
+        try:
+            data = json.loads(response.content)
+        except (ValueError, TypeError):
+            data = {}
+        if response.status_code != 200 or (isinstance(data, dict) and data.get('errorMessage')):
+            return _detail_redirect(request, name, kind, error=(data.get('errorMessage') if isinstance(data, dict) else '') or 'Dokument konnte nicht gelöscht werden.')
+        return _detail_redirect(request, name, kind, notice='Dokument gelöscht.')
+    return _detail_redirect(request, name, kind, error='Unbekannte Dokumentaktion.')
 
 
 @csrf_protect

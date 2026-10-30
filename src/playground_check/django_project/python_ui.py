@@ -166,16 +166,18 @@ def assigned_playgrounds(request):
     return _render(request, template, data, partial=partial)
 
 
-@require_GET
+@csrf_protect
+@require_http_methods(["GET", "POST"])
 @ui_login_required
 def playground_detail(request):
     """Authorized read of play devices and inspection history, no browser-side data duplication."""
     user, denied = _private(request)
     if denied: return denied
-    name = (request.GET.get("name") or "").strip()[:200]
+    source = request.GET if request.method == "GET" else request.POST
+    name = (source.get("name") or "").strip()[:200]
     if not name:
         return _render(request, "error.html", {"message": "Kein Spielplatz ausgewählt.", "private": True}, status=400)
-    kind = (request.GET.get("inspectiontype") or "").strip()[:100]
+    kind = (source.get("inspectiontype") or "").strip()[:100]
     try:
         payload = playground_by_name_data({"name": name, "inspectiontype": kind, "withdefects": "true", "withinspections": "true"})
     except LookupError:
@@ -195,8 +197,13 @@ def playground_detail(request):
             ) and kind in (payload.get("inspectionTypeOptions") or [])
         except Exception:
             LOGGER.exception("Could not establish inspection eligibility for detail")
+    flash_notice = (request.GET.get("notice") or "").strip()[:180]
+    flash_error = (request.GET.get("error") or "").strip()[:180]
     return _render(request, "detail.html", {"playground": payload, "kind": kind,
-                                            "can_inspect": can_inspect, "private": True, "user": user})
+                                            "can_inspect": can_inspect, "private": True, "user": user,
+                                            "flash_notice": flash_notice, "flash_error": flash_error,
+                                            "is_admin": user.get("role") == "administrator",
+                                            "csrf_token_value": get_token(request)})
 
 
 @require_GET
