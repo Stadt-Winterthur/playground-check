@@ -439,7 +439,10 @@ def defect_detail(request):
                     return fail("Bei Dringlichkeit B sind Zuständigkeit und Person erforderlich.")
                 if person_id > 0:
                     with connect() as db:
-                        if not any(int(row["fid"]) == person_id for row in user_repository.assignable_users(db)):
+                        if not any(
+                            row.get("fid") is not None and int(row["fid"]) == person_id
+                            for row in user_repository.assignable_users(db)
+                        ):
                             return fail("Die ausgewählte Person ist nicht zuweisbar.")
                 # Retain existing completion date and assignment metadata on an ordinary save.
                 # Only change the completion state when the checkbox changes.
