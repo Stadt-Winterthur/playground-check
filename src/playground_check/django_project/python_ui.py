@@ -34,7 +34,7 @@ def _prefix(request):
 def _render(request, template, data=None, *, status=200, partial=False):
     route = request.path.strip("/").split("/", 1)[0]
     nav = {"": "home", "workspace": "inspections", "assigned": "inspections" if request.GET.get("inspectiontype") or request.GET.get("mode") == "inspection" else "devices", "detail": "inspections" if request.GET.get("inspectiontype") else "devices", "inspection": "inspections", "defects": "defects", "defect": "defects", "admin": "users", "device": "devices"}.get(route, "")
-    values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", "active_nav": nav, "local_htmx_available": (Path(__file__).resolve().parents[1] / "static/vendor/htmx.min.js").is_file(), **(data or {})}
+    values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", "active_nav": nav, "home_page": template == "home.html", "local_htmx_available": (Path(__file__).resolve().parents[1] / "static/vendor/htmx.min.js").is_file(), **(data or {})}
     if values.get("private") and "role" not in values:
         # Role information must be derived from the already validated identity.
         user = values.get("user")

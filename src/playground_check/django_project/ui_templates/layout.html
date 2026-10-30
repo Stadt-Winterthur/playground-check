@@ -2,6 +2,7 @@
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#b21e2b"><title>{{ page_title }}</title>
 <link rel="stylesheet" href="{{ prefix }}/static/css/python-ui.css">
+{% if home_page %}<link rel="stylesheet" href="{{ prefix }}/static/css/welcome-home.css">{% endif %}
 {% if local_htmx_available %}<script defer src="{{ prefix }}/static/vendor/htmx.min.js"></script>{% endif %}
 </head><body class="{% if private %}authenticated{% else %}anonymous{% endif %}">
 <a class="skip-link" href="#content">Zum Inhalt springen</a>
@@ -16,7 +17,7 @@
 <a href="{{ prefix }}/defects/" {% if active_nav == 'defects' %}aria-current="page"{% endif %}><span aria-hidden="true">!</span> Mängel</a>
 {% if role == 'administrator' %}<a href="{{ prefix }}/admin/users/" {% if active_nav == 'users' %}aria-current="page"{% endif %}><span aria-hidden="true">♙</span> Benutzer</a>{% endif %}
 </nav><div class="side-meta"><a href="https://stadt.winterthur.ch/impressum">Impressum</a></div></aside>{% endif %}
-<main id="content" class="app-content">{{ body|safe }}</main>
+<main id="content" class="app-content{% if home_page %} welcome-page{% endif %}">{{ body|safe }}</main>
 </div>
 {% if private %}<nav class="bottom-navigation" aria-label="Mobile Hauptnavigation">
 <a href="{{ prefix }}/" {% if active_nav == 'home' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span><span>Start</span></a>

@@ -46,7 +46,9 @@ class PythonUITest(unittest.TestCase):
         prefix = '/stadtgruen/spielplatzkontrolle'
         self.assertIn(f'href="{prefix}/static/css/python-ui.css"', html)
         self.assertIn(f'href="{prefix}/"', html)
-        self.assertIn(f'href="{prefix}/playgrounds/"', html)
+        self.assertIn(f'href="{prefix}/static/css/welcome-home.css"', html)
+        self.assertIn('Stadtgrün Winterthur', html)
+        self.assertNotIn('action-grid', html)
 
     def test_reverse_proxy_search_form(self):
         class DB:

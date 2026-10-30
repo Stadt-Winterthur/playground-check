@@ -1,8 +1,17 @@
-<div class="page-heading"><p class="eyebrow">Willkommen</p><h1>Spielplatzkontrolle</h1><p>Wähle einen Arbeitsbereich. Die Funktionen entsprechen den Arbeitsabläufen der bisherigen Anwendung.</p></div>
-{% if not private %}<p><a class="primary-button" href="{{ prefix }}/login/">Anmelden, um Spielgeräte und Inspektionen zu bearbeiten</a></p>{% endif %}
-<div class="action-grid"><a class="action-card" href="{{ prefix }}/assigned/"><span class="action-icon" aria-hidden="true">▦</span><strong>Spielgeräte</strong><span>Spielplatz suchen, Geräte anzeigen und bearbeiten</span></a>
-<a class="action-card" href="{{ prefix }}/assigned/?mode=inspection"><span class="action-icon" aria-hidden="true">✓</span><strong>Inspektion</strong><span>Inspektionsart und Spielplatz wählen, Geräte prüfen</span></a>
-<a class="action-card" href="{{ prefix }}/defects/"><span class="action-icon" aria-hidden="true">!</span><strong>Mängel</strong><span>Offene Mängel prüfen und bearbeiten</span></a>
-<a class="action-card" href="{{ prefix }}/profile/"><span class="action-icon" aria-hidden="true">◉</span><strong>Mein Konto</strong><span>Profil und Benachrichtigungen</span></a></div>
-
-<nav class="secondary-links" aria-label="Weitere Ansichten"><a href="{{ prefix }}/playgrounds/">Spielplatzverzeichnis</a><a href="{{ prefix }}/workspace/">Arbeitsbereich</a></nav>
+<section class="welcome-hero" aria-labelledby="welcome-heading">
+  <div class="welcome-hero-inner">
+    <p class="welcome-hero-kicker">Spielplatzkontrolle der Stadt Winterthur</p>
+    <h1 id="welcome-heading">Stadtgrün Winterthur</h1>
+    <p class="welcome-hero-subtitle">Departement Technische Betriebe</p>
+  </div>
+</section>
+<section class="welcome-message" aria-label="Willkommen">
+  {% if private %}
+  <h2>Willkommen bei der Spielplatzkontrolle</h2>
+  {% else %}
+  <h2>Willkommen im System für die Spielplatzkontrolle der Stadt Winterthur</h2>
+  {% endif %}
+  <p>Über das Navigationsmenü gelangst du zu den Spielgeräten, den Inspektionen und der Mängelverwaltung. Wähle zunächst einen Spielplatz aus, um die zugehörigen Spielgeräte zu öffnen und zu kontrollieren.</p>
+  <p>Die Anwendung ist für Desktop, Tablet und Smartphone optimiert. Für die Nutzung ist eine dauerhafte Internetverbindung erforderlich; die Spielplatzkontrolle ist nicht offline-fähig.</p>
+  {% if not private %}<p class="welcome-signin"><a class="primary-button" href="{{ prefix }}/login/">Anmelden</a> <span>Für Spielgeräte, Inspektionen und Mängel ist eine Anmeldung erforderlich.</span></p>{% endif %}
+</section>
