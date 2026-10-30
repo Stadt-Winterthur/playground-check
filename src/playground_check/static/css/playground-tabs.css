@@ -1,0 +1,10 @@
+.playground-tabs{display:grid;grid-template-columns:minmax(0,1fr);margin:1rem 0 2rem;min-width:0}
+.playground-tab-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.playground-tab-nav{display:flex;gap:.4rem;border-bottom:1px solid #ced9e3;overflow-x:auto;margin-bottom:1.25rem}
+.playground-tab-nav label{padding:.85rem 1.2rem;cursor:pointer;font-weight:700;border-bottom:3px solid transparent;white-space:nowrap;color:#425a70;min-height:44px}
+#playground-tab-devices:checked~.playground-tab-nav label[for="playground-tab-devices"],#playground-tab-documents:checked~.playground-tab-nav label[for="playground-tab-documents"]{border-bottom-color:#ed0000;color:#092b46}
+#playground-tab-devices:focus-visible~.playground-tab-nav label[for="playground-tab-devices"],#playground-tab-documents:focus-visible~.playground-tab-nav label[for="playground-tab-documents"]{outline:2px solid #ed0000;outline-offset:-3px}
+.playground-tab-panel{display:none;min-width:0}
+#playground-tab-devices:checked~.playground-tab-devices,#playground-tab-documents:checked~.playground-tab-documents{display:block}
+.playground-tab-documents .playground-document-board{margin-top:0}
+@media(max-width:560px){.playground-tab-nav label{flex:1;text-align:center;padding:.8rem .4rem}}

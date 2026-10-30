@@ -73,7 +73,7 @@ class PlaygroundDocumentUITests(unittest.TestCase):
              patch.object(self.workflows, '_native', return_value=api_response) as native:
             response = self.workflows.playground_document_action(request)
         self.assertEqual(response.status_code, 303)
-        self.assertIn('/__ui/detail/?name=Alpenblick+Anlage&inspectiontype=Visuelle+Inspektion&notice=', response['Location'])
+        self.assertIn('/__ui/detail/?name=Alpenblick+Anlage&tab=documents&inspectiontype=Visuelle+Inspektion&notice=', response['Location'])
         payload = native.call_args.args[2]
         self.assertEqual(payload['playgroundId'], 17)
         self.assertEqual(payload['type'], 'abnahme')

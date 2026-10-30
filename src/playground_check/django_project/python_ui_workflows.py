@@ -73,7 +73,7 @@ def _outcome(request, response, success):
 
 
 def _detail_redirect(request, name, kind='', *, notice='', error=''):
-    params = {'name': (name or '')[:200]}
+    params = {'name': (name or '')[:200], 'tab': 'documents'}
     if kind:
         params['inspectiontype'] = kind[:100]
     if notice:

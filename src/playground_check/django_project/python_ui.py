@@ -207,6 +207,7 @@ def playground_detail(request):
     return _render(request, "detail.html", {"playground": payload, "kind": kind,
                                             "can_inspect": can_inspect, "private": True, "user": user,
                                             "flash_notice": flash_notice, "flash_error": flash_error,
+                                            "documents_tab": request.GET.get("tab") == "documents" or bool(flash_notice or flash_error),
                                             "is_admin": user.get("role") == "administrator",
                                             "csrf_token_value": get_token(request)})
 

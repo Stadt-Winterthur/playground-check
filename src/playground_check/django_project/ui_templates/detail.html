@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="{{ prefix }}/static/css/playground-tabs.css">
 <div class="page-heading">
   <p class="eyebrow">Spielplatz</p>
   <h1>{{ playground.name }}</h1>
@@ -5,6 +6,40 @@
 </div>
 {% if playground.inspectionSuspended %}<div class="notice warning" role="status">Inspektionen sind für diesen Spielplatz derzeit ausgesetzt.</div>{% endif %}
 
+<div class="playground-tabs" aria-label="Spielplatzbereiche">
+  <input class="playground-tab-input" type="radio" name="playground-tab" id="playground-tab-devices" {% if not documents_tab %}checked{% endif %}>
+  <input class="playground-tab-input" type="radio" name="playground-tab" id="playground-tab-documents" {% if documents_tab %}checked{% endif %}>
+  <div class="playground-tab-nav" role="group" aria-label="Bereich auswählen">
+    <label for="playground-tab-devices">Spielgeräte <span class="muted">({{ playground.playdevices|length }})</span></label>
+    <label for="playground-tab-documents">Dokumente</label>
+  </div>
+  <div class="playground-tab-panel playground-tab-devices" id="devices">
+<h2>Spielgeräte <span class="muted">({{ playground.playdevices|length }})</span></h2>
+<div class="device-grid">{% for device in playground.playdevices %}{% with p=device.properties %}
+<article class="device-card">
+  <div class="device-card-title"><div><h3>{{ p.type.description|default:p.type.name|default:'Spielgerät' }}</h3><p class="device-subtitle">{{ p.type.name|default:'Spielgerät' }}{% if p.type.standard %} · {{ p.type.standard }}{% endif %}</p></div>
+  {% if p.hasOpenDefects %}<span class="status warning">Offene Mängel</span>{% endif %}
+  {% if p.notToBeChecked or p.cannotBeChecked %}<span class="status">Nicht kontrollieren</span>{% endif %}</div>
+  <div class="device-photo"><img src="{{ prefix }}/Playdevice/{{ p.fid }}/Picture/" alt="Foto: {{ p.type.description|default:p.type.name|default:'Spielgerät' }}" loading="lazy" decoding="async"></div>
+  <p class="device-photo-action"><a class="secondary-button" href="{{ prefix }}/__ui/device/photo/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Foto ersetzen / aufnehmen</a></p>
+  <details class="device-map"><summary>Karte / Standort</summary>
+    {% if device.geometry.coordinates.0 != None and device.geometry.coordinates.1 != None %}<img class="device-map-image" src="{{ prefix }}/__ui/device/map/?x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}" alt="Kartenausschnitt des Spielgeraets" loading="lazy" decoding="async">
+    <p><a href="https://stadtplan.winterthur.ch/mini?gbapp=portal&amp;topic=Spielplatzkarte&amp;infoactive=1&amp;maponly=1&amp;onlymap=1&amp;scale=200&amp;x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}&amp;back=Hintergrundkarte_LK_AV_Situationsplan" target="_blank" rel="noopener noreferrer">Im Stadtplan anzeigen</a></p>{% else %}<p>Keine Standortkoordinaten vorhanden.</p>{% endif %}
+  </details>
+  <dl class="device-facts"><dt>Geräte-ID</dt><dd>{{ p.fid }}</dd>
+    {% if p.supplier %}<dt>Hersteller / Lieferant</dt><dd>{{ p.supplier }}</dd>{% endif %}
+    {% if p.constructionDate and p.constructionDate != '0001-01-01T00:00:00' %}<dt>Baujahr / Baudatum</dt><dd>{{ p.constructionDate|slice:':10' }}</dd>{% endif %}
+    {% if p.comment %}<dt>Bemerkung</dt><dd>{{ p.comment }}</dd>{% endif %}
+    {% if p.recommendedYearOfRenovation %}<dt>Sanierung empfohlen</dt><dd>{{ p.recommendedYearOfRenovation }}</dd>{% endif %}
+    {% if p.commentRecommendedYearOfRenovation %}<dt>Sanierungsbemerkung</dt><dd>{{ p.commentRecommendedYearOfRenovation }}</dd>{% endif %}
+    {% if p.cannotBeCheckedReason %}<dt>Kontrollhindernis</dt><dd>{{ p.cannotBeCheckedReason }}</dd>{% endif %}
+  </dl>
+  {% if p.defects %}<details class="device-defects"><summary>Offene Mängel ({{ p.defects|length }})</summary><ul>{% for defect in p.defects %}<li>{{ defect.defectDescription|default:'Mangel' }}</li>{% endfor %}</ul></details>{% endif %}
+  <details class="device-menu"><summary>Spielgerät bearbeiten</summary><div class="device-actions"><a href="{{ prefix }}/__ui/device/edit/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Geräteattribute bearbeiten</a><a href="{{ prefix }}/__ui/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">Mangel erfassen</a></div></details>
+</article>
+{% endwith %}{% empty %}<p class="empty-state">Keine Spielgeräte vorhanden.</p>{% endfor %}</div>
+  </div>
+  <div class="playground-tab-panel playground-tab-documents">
 <section id="documents" class="playground-document-board" aria-label="Dokumente zum Spielplatz">
   <div class="document-board-head">
     <div>
@@ -149,28 +184,5 @@
     </section>
   </div>
 </section>
-
-<h2>Spielgeräte <span class="muted">({{ playground.playdevices|length }})</span></h2>
-<div class="device-grid">{% for device in playground.playdevices %}{% with p=device.properties %}
-<article class="device-card">
-  <div class="device-card-title"><div><h3>{{ p.type.description|default:p.type.name|default:'Spielgerät' }}</h3><p class="device-subtitle">{{ p.type.name|default:'Spielgerät' }}{% if p.type.standard %} · {{ p.type.standard }}{% endif %}</p></div>
-  {% if p.hasOpenDefects %}<span class="status warning">Offene Mängel</span>{% endif %}
-  {% if p.notToBeChecked or p.cannotBeChecked %}<span class="status">Nicht kontrollieren</span>{% endif %}</div>
-  <div class="device-photo"><img src="{{ prefix }}/Playdevice/{{ p.fid }}/Picture/" alt="Foto: {{ p.type.description|default:p.type.name|default:'Spielgerät' }}" loading="lazy" decoding="async"></div>
-  <p class="device-photo-action"><a class="secondary-button" href="{{ prefix }}/__ui/device/photo/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Foto ersetzen / aufnehmen</a></p>
-  <details class="device-map"><summary>Karte / Standort</summary>
-    {% if device.geometry.coordinates.0 != None and device.geometry.coordinates.1 != None %}<img class="device-map-image" src="{{ prefix }}/__ui/device/map/?x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}" alt="Kartenausschnitt des Spielgeraets" loading="lazy" decoding="async">
-    <p><a href="https://stadtplan.winterthur.ch/mini?gbapp=portal&amp;topic=Spielplatzkarte&amp;infoactive=1&amp;maponly=1&amp;onlymap=1&amp;scale=200&amp;x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}&amp;back=Hintergrundkarte_LK_AV_Situationsplan" target="_blank" rel="noopener noreferrer">Im Stadtplan anzeigen</a></p>{% else %}<p>Keine Standortkoordinaten vorhanden.</p>{% endif %}
-  </details>
-  <dl class="device-facts"><dt>Geräte-ID</dt><dd>{{ p.fid }}</dd>
-    {% if p.supplier %}<dt>Hersteller / Lieferant</dt><dd>{{ p.supplier }}</dd>{% endif %}
-    {% if p.constructionDate and p.constructionDate != '0001-01-01T00:00:00' %}<dt>Baujahr / Baudatum</dt><dd>{{ p.constructionDate|slice:':10' }}</dd>{% endif %}
-    {% if p.comment %}<dt>Bemerkung</dt><dd>{{ p.comment }}</dd>{% endif %}
-    {% if p.recommendedYearOfRenovation %}<dt>Sanierung empfohlen</dt><dd>{{ p.recommendedYearOfRenovation }}</dd>{% endif %}
-    {% if p.commentRecommendedYearOfRenovation %}<dt>Sanierungsbemerkung</dt><dd>{{ p.commentRecommendedYearOfRenovation }}</dd>{% endif %}
-    {% if p.cannotBeCheckedReason %}<dt>Kontrollhindernis</dt><dd>{{ p.cannotBeCheckedReason }}</dd>{% endif %}
-  </dl>
-  {% if p.defects %}<details class="device-defects"><summary>Offene Mängel ({{ p.defects|length }})</summary><ul>{% for defect in p.defects %}<li>{{ defect.defectDescription|default:'Mangel' }}</li>{% endfor %}</ul></details>{% endif %}
-  <details class="device-menu"><summary>Spielgerät bearbeiten</summary><div class="device-actions"><a href="{{ prefix }}/__ui/device/edit/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Geräteattribute bearbeiten</a><a href="{{ prefix }}/__ui/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">Mangel erfassen</a></div></details>
-</article>
-{% endwith %}{% empty %}<p class="empty-state">Keine Spielgeräte vorhanden.</p>{% endfor %}</div>
+  </div>
+</div>
