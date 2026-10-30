@@ -1,15 +1,18 @@
-<h1>Inspektion erfassen</h1><p><strong>{{ name }}</strong> · {{ kind }}</p>
-<form method="post" action="{{ prefix }}/__ui/inspection/">
-<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}">
-<input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
-<div class="cards">{% for device in devices %}<fieldset class="tile"><legend><strong>{{ device.name }}</strong> · FID {{ device.fid }}</legend>
-<p><a href="{{ prefix }}/__ui/device/checkability/?fid={{ device.fid }}&amp;name={{ name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Pruefbarkeit dieses Geraets bearbeiten</a></p>
-{% if device.not_to_be_checked %}<p>Dieses Gerät ist von der Kontrolle ausgenommen.</p>{% elif device.cannot_be_checked %}<p>Dieses Gerät ist als nicht prüfbar markiert; bitte zuerst Stammdaten prüfen.</p>{% elif not device.checks %}<p>Für dieses Gerät sind keine Kriterien hinterlegt.</p>{% endif %}
-{% if not device.not_to_be_checked and not device.cannot_be_checked %}{% for check in device.checks %}<details open><summary><strong>{{ check.realm }} · {{ check.label }}</strong>{% if check.fall %} · {{ check.fall }}{% endif %}</summary>
-<p>{{ check.check }}</p><label><input type="checkbox" name="inspection_done_{{ device.fid }}_{{ check.index }}" required> Prüfung abgeschlossen</label>
-<label for="comment_{{ device.fid }}_{{ check.index }}">Prüfbemerkung</label><textarea id="comment_{{ device.fid }}_{{ check.index }}" name="comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2"></textarea>
-<p>{{ check.maintenance }}</p><label><input type="checkbox" name="maintenance_done_{{ device.fid }}_{{ check.index }}" required> Wartung abgeschlossen</label>
-<label for="maintenance_comment_{{ device.fid }}_{{ check.index }}">Wartungsbemerkung</label><textarea id="maintenance_comment_{{ device.fid }}_{{ check.index }}" name="maintenance_comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2"></textarea></details>{% endfor %}{% endif %}
-</fieldset>{% endfor %}</div>
-<p><label><input type="checkbox" name="confirm" value="yes" required> Inspektion vollständig speichern</label></p>
-<button type="submit">Inspektion speichern</button></form><p class="note">Alle Prüfkriterien werden vor dem Speichern serverseitig aus dem autorisierten Spielplatz neu geladen. Die Schreibfreigabe bleibt bis zur Abnahme deaktiviert.</p>
+<div class="page-heading"><p class="eyebrow">Inspektion durchführen</p><h1>{{ name }}</h1><p>{{ kind }} · {{ devices|length }} Spielgeräte</p></div>
+{% if form_error %}<div class="notice warning inspection-error" role="alert"><strong>Der Inspektionsbericht wurde nicht gespeichert.</strong><p>{{ form_error }}</p><p>Deine Eingaben sind weiterhin vorhanden. Bitte korrigiere sie und versuche es erneut.</p></div>{% endif %}
+<div class="notice warning">ACHTUNG: Prüfungen müssen gemäss den vorliegenden Anweisungen und der Montageanleitung des jeweiligen Produkts erfolgen.</div>
+<form method="post" action="{{ prefix }}/__ui/inspection/" class="inspection-form">
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token_value }}"><input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
+{% for device in devices %}<section class="inspection-device" aria-labelledby="ins-device-{{ device.fid }}">
+<header class="inspection-device-head"><h2 id="ins-device-{{ device.fid }}">{{ device.name }}</h2><span class="muted">Geräte-FID {{ device.fid }}</span></header>
+{% if device.not_to_be_checked %}<p class="notice warning">Dieses Spielgerät ist von der Kontrolle ausgenommen.</p>
+{% elif device.cannot_be_checked %}<p class="notice warning">Dieses Spielgerät ist als nicht prüfbar markiert.</p><p><a href="{{ prefix }}/__ui/device/checkability/?fid={{ device.fid }}&amp;name={{ name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Prüfbarkeit bearbeiten</a></p>
+{% elif not device.checks %}<p class="muted">Keine Inspektionskriterien hinterlegt.</p>
+{% else %}<h3 class="inspection-group-title">Inspektionskriterien</h3>
+{% for check in device.checks %}<details class="inspection-criterion" open>
+<summary><span>{{ check.realm }}{% if check.realm and check.label %} – {% endif %}{{ check.label }}{% if check.fall %} · {{ check.fall }}{% endif %}</span><span class="inspection-pending">Prüfpunkt</span></summary>
+<div class="inspection-criterion-content">
+<div class="inspection-half"><h4>Prüfung</h4><p class="inspection-instruction">{{ check.check }}</p><label class="inspection-checkbox"><input type="checkbox" name="inspection_done_{{ device.fid }}_{{ check.index }}" {% if check.inspection_done %}checked{% endif %}> Prüfung erledigt</label><label for="comment_{{ device.fid }}_{{ check.index }}">Kommentar zur Prüfung</label><textarea id="comment_{{ device.fid }}_{{ check.index }}" name="comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2">{{ check.comment }}</textarea></div>
+<div class="inspection-half"><h4>Wartung</h4><p class="inspection-instruction maintenance">{{ check.maintenance }}</p><label class="inspection-checkbox"><input type="checkbox" name="maintenance_done_{{ device.fid }}_{{ check.index }}" {% if check.maintenance_done %}checked{% endif %}> Wartung erledigt</label><label for="maintenance_comment_{{ device.fid }}_{{ check.index }}">Kommentar zur Wartung</label><textarea id="maintenance_comment_{{ device.fid }}_{{ check.index }}" name="maintenance_comment_{{ device.fid }}_{{ check.index }}" maxlength="2000" rows="2">{{ check.maintenance_comment }}</textarea></div>
+</div></details>{% endfor %}{% endif %}</section>{% endfor %}
+<div class="inspection-submit"><label class="inspection-checkbox"><input type="checkbox" name="confirm" value="yes" {% if confirmed %}checked{% endif %} required> Inspektionsbericht abschliessend einreichen</label><button type="submit">Inspektionsbericht senden</button><p class="muted">Bitte vor dem Absenden alle Prüf- und Wartungspositionen kontrollieren.</p></div></form>

@@ -303,39 +303,53 @@ def inspection_editor(request):
                                    "label": criterion.get("checkShortText") or criterion.get("check") or "Prüfung",
                                    "realm": criterion.get("realm") or "",
                                    "check": criterion.get("check") or "",
-                                   "maintenance": criterion.get("maintenance") or ""})
+                                   "maintenance": criterion.get("maintenance") or "",
+                                   "comment": "", "maintenance_comment": "",
+                                   "inspection_done": False, "maintenance_done": False})
             devices.append({"fid": fid, "name": item.get("name") or props.get("type", {}).get("description") or f"Spielgerät {fid}",
                             "checks": checks, "not_to_be_checked": bool(props.get("notToBeChecked")),
                             "cannot_be_checked": bool(props.get("cannotBeChecked"))})
     if not devices or len(devices) > 300 or len({d["fid"] for d in devices}) != len(devices):
         return _render(request, "error.html", {"message": "Keine gültige Geräteliste verfügbar.", "private": True}, status=400)
-    context = {"name": name, "kind": kind, "devices": devices, "private": True, "user": user}
+    context = {"name": name, "kind": kind, "devices": devices, "private": True, "user": user,
+               "csrf_token_value": get_token(request)}
     if request.method == "GET":
-        context["csrf_token_value"] = get_token(request)
+        return _render(request, "inspection_editor.html", context)
+    context["confirmed"] = request.POST.get("confirm") == "yes"
+    for device in devices:
+        for criterion in device["checks"]:
+            key = f'{device["fid"]}_{criterion["index"]}'
+            criterion["comment"] = (request.POST.get(f"comment_{key}") or "")[:2000]
+            criterion["maintenance_comment"] = (request.POST.get(f"maintenance_comment_{key}") or "")[:2000]
+            criterion["inspection_done"] = request.POST.get(f"inspection_done_{key}") == "on"
+            criterion["maintenance_done"] = request.POST.get(f"maintenance_done_{key}") == "on"
+
+    def form_failure(message):
+        context["form_error"] = message
         return _render(request, "inspection_editor.html", context)
     # Keep writes disabled until full criteria and browser acceptance are verified.
     if os.environ.get("PLAYGROUND_UI_INSPECTION_WRITE_ENABLED", "").lower() != "true":
-        return _render(request, "error.html", {"message": "Speicherung in der neuen Oberfläche ist noch nicht freigegeben.", "private": True}, status=403)
+        return form_failure("Die Übermittlung ist für diese Umgebung noch nicht freigeschaltet. Bitte die Administration kontaktieren.")
     if request.content_type != "application/x-www-form-urlencoded":
-        return _render(request, "error.html", {"message": "Ungültiger Formularinhalt.", "private": True}, status=400)
-    if len(request.body) > 200000:
-        return _render(request, "error.html", {"message": "Formular ist zu gross.", "private": True}, status=413)
+        return form_failure("Das Formularformat wird nicht unterstützt. Bitte die Seite neu laden.")
+    if int(request.META.get("CONTENT_LENGTH") or 0) > 200000:
+        return form_failure("Der Inspektionsbericht ist zu gross.")
     reports = []
     for device in devices:
         fid = device["fid"]
         if device["not_to_be_checked"]:
             continue
         if device["cannot_be_checked"]:
-            return _render(request, "error.html", {"message": "Nicht prüfbare Geräte müssen zuerst in den Stammdaten bearbeitet werden.", "private": True}, status=409)
+            return form_failure("Ein nicht prüfbares Spielgerät muss zuerst in den Stammdaten bearbeitet werden.")
         for criterion in device["checks"]:
             i = criterion["index"]
             key = f"{fid}_{i}"
             comment = (request.POST.get(f"comment_{key}") or "").strip()
             maintenance_comment = (request.POST.get(f"maintenance_comment_{key}") or "").strip()
             if len(comment) > 2000 or len(maintenance_comment) > 2000:
-                return _render(request, "error.html", {"message": "Kommentar zu lang.", "private": True}, status=400)
+                return form_failure("Ein Kommentar ist zu lang (maximal 2000 Zeichen).")
             if request.POST.get(f"inspection_done_{key}") != "on" or request.POST.get(f"maintenance_done_{key}") != "on":
-                return _render(request, "error.html", {"message": "Alle Prüf- und Wartungspositionen müssen abgeschlossen sein.", "private": True}, status=400)
+                return form_failure("Bitte alle Prüf- und Wartungspositionen abschliessen, bevor der Bericht gesendet wird.")
             reports.append({"inspectionType": kind, "playdeviceFid": fid,
                             "inspectionText": criterion["check"],
                             "maintenanceText": criterion["maintenance"],
@@ -344,9 +358,9 @@ def inspection_editor(request):
                             "inspectionComment": comment,
                             "maintenanceComment": maintenance_comment})
     if not reports:
-        return _render(request, "error.html", {"message": "Keine Prüfkriterien vorhanden.", "private": True}, status=400)
+        return form_failure("Keine Prüfkriterien vorhanden.")
     if request.POST.get("confirm") != "yes":
-        return _render(request, "error.html", {"message": "Bitte die Speicherung bestätigen.", "private": True}, status=400)
+        return form_failure("Bitte den Abschluss des Inspektionsberichts bestätigen.")
     # Reuse the existing DRF command and its authorization, duplicate detection,
     # table locks, and FID/TID rules. No independent SQL write implementation.
     meta = {k: v for k, v in request.META.items() if k.startswith("HTTP_") and k != "HTTP_CONTENT_LENGTH"}
@@ -359,7 +373,12 @@ def inspection_editor(request):
         result_data = {}
     if result.status_code != 200 or result_data.get("errorMessage") != "":
         LOGGER.warning("Inspection was rejected with status %s", result.status_code)
-        return _render(request, "error.html", {"message": "Inspektion konnte nicht gespeichert werden. Bitte Berechtigung, Datum und Eingaben prüfen.", "private": True}, status=409)
+        messages = {"SPK-2": "Für diesen Spielplatz wurde heute bereits eine Inspektion dieser Art erfasst.",
+                    "SPK-11": "Du bist für diese Inspektion nicht berechtigt. Bitte die Zuweisung überprüfen.",
+                    "SPK-12": "Ein Spielgerät konnte dem Spielplatz nicht zugeordnet werden.",
+                    "SPK-3": "Beim Speichern ist ein Server- oder Datenbankfehler aufgetreten. Bitte später erneut versuchen."}
+        code = result_data.get("errorMessage") if isinstance(result_data, dict) else None
+        return form_failure(messages.get(code, "Der Inspektionsbericht konnte nicht gespeichert werden. Bitte die Angaben prüfen und erneut versuchen."))
     return _render(request, "inspection_success.html", {"name": name, "kind": kind, "private": True})
 
 
