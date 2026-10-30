@@ -14,12 +14,12 @@ from urllib.request import urlopen
 from .config import settings
 
 
-def map_image_base64(query: Mapping[str, str]) -> str:
+def map_image_base64(query: Mapping[str, str], *, endpoint_override: str | None = None) -> str:
     x = float(query.get("x", "0") or 0)
     y = float(query.get("y", "0") or 0)
     if x == 0 or y == 0:
         return ""
-    endpoint = settings.wms_url.strip()
+    endpoint = (endpoint_override or settings.wms_url).strip()
     if not endpoint.lower().startswith(("http://", "https://")):
         endpoint = "http://" + endpoint
     if not endpoint.rstrip("/").endswith("Spielplatzkarte"):

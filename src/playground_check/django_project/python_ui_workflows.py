@@ -353,15 +353,32 @@ def playdevice_map(request):
         return HttpResponse('Ungueltige Koordinaten.', status=400)
     try:
         from playground_check.map_image_queries import map_image_base64
-        decoded = base64.b64decode(map_image_base64({'x': str(x), 'y': str(y)}), validate=True)
-        if len(decoded) > 5_000_000:
-            raise ValueError('oversized upstream image')
-        if decoded.startswith(b'\x89PNG\r\n\x1a\n'):
-            mime = 'image/png'
-        elif decoded.startswith(b'\xff\xd8\xff'):
-            mime = 'image/jpeg'
+        # The TEST WMS often responds with 403 HTML. Prefer the configured service,
+        # but retry once against the established Stadtplan WMS when it fails.
+        # This changes no API endpoint or frontend framework.
+        canonical = 'https://stadtplan.winterthur.ch/wms/Spielplatzkarte'
+        endpoints = [None]
+        if settings.wms_url.rstrip('/').lower() != canonical.lower():
+            endpoints.append(canonical)
+        last_error = None
+        for endpoint in endpoints:
+            try:
+                kwargs = {'endpoint_override': endpoint} if endpoint else {}
+                decoded = base64.b64decode(map_image_base64({'x': str(x), 'y': str(y)}, **kwargs), validate=True)
+                if len(decoded) > 5_000_000:
+                    raise ValueError('oversized upstream image')
+                if decoded.startswith(b'\x89PNG\r\n\x1a\n'):
+                    mime = 'image/png'
+                elif decoded.startswith(b'\xff\xd8\xff'):
+                    mime = 'image/jpeg'
+                else:
+                    raise ValueError('non-image upstream response (WMS error or access denied)')
+                break
+            except Exception as exc:
+                last_error = exc
+                LOG.warning('WMS request failed for %s: %s', endpoint or 'configured endpoint', type(exc).__name__)
         else:
-            raise ValueError('non-image upstream response (WMS error or access denied)')
+            raise ValueError('No usable WMS image received') from last_error
     except Exception:
         LOG.warning('WMS upstream failed (check PLAYGROUND_WMS_URL and WMS access)', exc_info=True)
         return HttpResponse('Kartendienst derzeit nicht verfuegbar.', status=502)

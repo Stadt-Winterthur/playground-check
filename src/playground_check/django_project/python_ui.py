@@ -37,7 +37,7 @@ def _prefix(request):
 
 def _render(request, template, data=None, *, status=200, partial=False):
     route = request.path.split("/__ui/", 1)[-1].split("/", 1)[0] if "/__ui/" in request.path else ""
-    nav = {"": "home", "workspace": "home", "assigned": "inspections" if request.GET.get("inspectiontype") or request.GET.get("mode") == "inspection" else "devices", "detail": "inspections" if request.GET.get("inspectiontype") else "devices", "inspection": "inspections", "defects": "defects", "defect": "defects", "admin": "users", "device": "devices"}.get(route, "")
+    nav = {"": "home", "workspace": "inspections", "assigned": "inspections" if request.GET.get("inspectiontype") or request.GET.get("mode") == "inspection" else "devices", "detail": "inspections" if request.GET.get("inspectiontype") else "devices", "inspection": "inspections", "defects": "defects", "defect": "defects", "admin": "users", "device": "devices"}.get(route, "")
     values = {"prefix": _prefix(request), "page_title": "Spielplatzkontrolle", "active_nav": nav, "local_htmx_available": (Path(__file__).resolve().parents[1] / "static/vendor/htmx.min.js").is_file(), **(data or {})}
     if values.get("private") and "role" not in values:
         # Role information must be derived from the already validated identity.
@@ -142,7 +142,7 @@ def assigned_playgrounds(request):
     # Use the exact DB identifiers (e.g. "Visuelle Inspektion (VI)").
     # A blank type denotes the read-only overview, not inspection eligibility.
     type_choices = []
-    if request.headers.get("HX-Request") != "true":
+    if inspection_mode and request.headers.get("HX-Request") != "true":
         try:
             from playground_check.remaining_reads_repository import inspection_type_rows
             with connect() as db:

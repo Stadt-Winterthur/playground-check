@@ -1,6 +1,6 @@
 <div class="page-heading"><p class="eyebrow">Spielplatz</p><h1>{{ playground.name }}</h1>{% if playground.address %}<p>{{ playground.address }}</p>{% endif %}</div>
 {% if playground.inspectionSuspended %}<div class="notice warning" role="status">Inspektionen sind für diesen Spielplatz derzeit ausgesetzt.</div>{% endif %}
-<div class="context-actions">{% if can_inspect %}<a class="primary-button" href="{{ prefix }}/__ui/inspection/?name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Inspektion starten</a>{% elif not kind %}<a class="secondary-button" href="{{ prefix }}/__ui/assigned/?inspectiontype=">Inspektion: Berechtigung und Art auswählen</a>{% endif %}<a class="secondary-button" href="{{ prefix }}/__ui/defects/">Mängelübersicht</a></div>
+<div class="context-actions">{% if can_inspect %}<a class="primary-button" href="{{ prefix }}/__ui/inspection/?name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">Inspektion starten</a>{% endif %}<a class="secondary-button" href="{{ prefix }}/__ui/defects/">Mängelübersicht</a></div>
 {% if playground.documentsOfAcceptance or playground.certificateDocuments %}
 <section class="playground-documents" aria-label="Dokumente zum Spielplatz">
 {% if playground.documentsOfAcceptance %}<div class="document-group"><h2>Abnahmedokumente</h2><ul>{% for doc in playground.documentsOfAcceptance %}<li><a href="{{ prefix }}/Document/{{ doc.fid }}/?type=abnahme">{{ doc.name|default:'Abnahmedokument' }}</a></li>{% endfor %}</ul></div>{% endif %}
