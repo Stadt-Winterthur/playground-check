@@ -1,0 +1,7 @@
+    <article class="defect-mobile-item{% if defect.assignment_overdue %} defect-critical{% endif %}" role="listitem">
+      <div class="defect-mobile-top"><strong>{{ defect.playground_name|default:"Spielplatz unbekannt" }}</strong><span class="defect-chip">{% if defect.done_by %}Erledigt{% else %}Offen{% endif %}</span></div>
+      <div class="defect-secondary">{{ defect.playdevice_type|default:"Spielgerät" }} · {% if defect.priority == 1 %}A (sofort){% elif defect.priority == 2 %}B (mittelfristig){% elif defect.priority == 3 %}C (im Folgejahr){% else %}Keine Dringlichkeit{% endif %} · TID {{ defect.tid }}</div>
+      {% if defect.assignment_overdue %}<span class="defect-chip danger">24 h überschritten</span>{% endif %}
+      <p class="defect-mobile-description">{{ defect.description|default:"Keine Beschreibung" }}</p>
+      <div class="defect-mobile-bottom"><span>{% if defect.open_days is not None %}Offen seit {{ defect.open_days }} Tagen{% else %}{{ defect.date_creation|date:"d.m.Y"|default:"–" }}{% endif %}</span><a href="{{ prefix }}/__ui/defect/?tid={{ defect.tid|urlencode }}">Details <span aria-hidden="true">›</span></a></div>
+    </article>

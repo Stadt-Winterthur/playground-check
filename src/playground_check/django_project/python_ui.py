@@ -241,7 +241,7 @@ def defects(request):
             "page": page, "next": page + 1, "has_next": len(raw) > size,
             "user": user, "private": True}
     partial = request.headers.get("HX-Request") == "true"
-    template = ("defects_rows.html" if request.GET.get("append") == "1" else "defects_results.html") if partial else "defects.html"
+    template = ("defects_append.html" if request.GET.get("append") == "1" else "defects_results.html") if partial else "defects.html"
     return _render(request, template, data, partial=partial)
 
 
