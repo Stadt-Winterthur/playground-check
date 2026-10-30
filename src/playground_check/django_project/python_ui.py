@@ -227,7 +227,17 @@ def defects(request):
     except Exception:
         LOGGER.exception("Could not load defect overview")
         return _render(request, "error.html", {"message": "Mängel sind derzeit nicht verfügbar.", "private": True}, status=503)
-    data = {"rows": [dict(item) for item in raw[:size]], "query": query, "state": state, "priority": priority_raw if priority is not None else "",
+    # Compute age per record without a second database query. The SQL ordering
+    # remains authoritative, including across HTMX pages.
+    from datetime import date, datetime
+    rows = [dict(item) for item in raw[:size]]
+    today = date.today()
+    for item in rows:
+        created = item.get("date_creation")
+        if isinstance(created, datetime):
+            created = created.date()
+        item["open_days"] = max(0, (today - created).days) if isinstance(created, date) and not item.get("done_by") else None
+    data = {"rows": rows, "query": query, "state": state, "priority": priority_raw if priority is not None else "",
             "page": page, "next": page + 1, "has_next": len(raw) > size,
             "user": user, "private": True}
     partial = request.headers.get("HX-Request") == "true"

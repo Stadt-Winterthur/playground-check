@@ -196,6 +196,6 @@ SELECT
       AND (playground_name ILIKE %s ESCAPE '\' OR playdevice_type ILIKE %s ESCAPE '\'
            OR description ILIKE %s ESCAPE '\' OR responsible_user_name ILIKE %s ESCAPE '\')
       AND (%s::integer IS NULL OR priority = %s::integer)
-    ORDER BY (done_by IS NOT NULL), date_creation, playground_name, playdevice_type, tid
+    ORDER BY assignment_overdue DESC, date_creation ASC NULLS LAST, playground_name, playdevice_type, tid
     LIMIT %s OFFSET %s"""
     return db.execute(sql, (state, state, state, like, like, like, like, priority, priority, limit, offset)).fetchall()
