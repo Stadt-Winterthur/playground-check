@@ -1,0 +1,2 @@
+<div class="defect-result-summary" role="status">{% tr "Seite" %} {{ page }} · {% if rows %}{{ rows|length }} {% tr "Mängel auf dieser Seite" %}{% else %}{% tr "Keine Mängel" %}{% endif %}{% if has_next %} {% tr "· Weitere Ergebnisse vorhanden" %}{% endif %}</div>
+{% include "defects_rows.html" %}

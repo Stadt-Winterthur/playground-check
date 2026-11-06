@@ -1,0 +1,16 @@
+<h1>{% tr "Mein Konto" %}</h1><dl><dt>{% tr "Name" %}</dt><dd>{{ display_name }}</dd><dt>{% tr "E-Mail" %}</dt><dd>{{ email }}</dd><dt>{% tr "Rolle" %}</dt><dd>{{ role|ui }}</dd></dl>
+<p><a href="{{ prefix }}/privacy/#rechte">{% tr "Datenschutz und Auskunft zu Ihren Personendaten" %}</a></p>
+
+<section class="account-language" aria-labelledby="account-language-title">
+<h2 id="account-language-title">{% tr "Sprache" %}</h2>
+<p>{% tr "Ohne persönliche Auswahl wird die Sprache Ihres Webbrowsers verwendet. Nicht unterstützte Sprachen werden auf Deutsch angezeigt." %}</p>
+{% if language_saved %}<p class="notice success" role="status">{% tr "Sprachauswahl gespeichert." %}</p>{% endif %}
+{% include "ui_error.html" with message=language_error %}
+<form method="post" action="{{ prefix }}/profile/" class="account-language-form">
+
+<label for="account-language-select">{% tr "Anzeigesprache" %}</label>
+<select id="account-language-select" name="language">
+<option value="" {% if not preferred_language %}selected{% endif %}>{% tr "Default (Browser)" %}</option>
+{% for code, name in language_choices %}<option value="{{ code }}" {% if preferred_language == code %}selected{% endif %}>{{ name }}</option>{% endfor %}
+</select><button type="submit">{% tr "Sprache speichern" %}</button>
+</form></section>

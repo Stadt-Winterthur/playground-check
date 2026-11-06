@@ -1,0 +1,41 @@
+<article class="privacy-notice" aria-labelledby="privacy-title">
+  <h1 id="privacy-title">{% tr "Datenschutzerklärung" %}</h1>
+  <p class="muted">{% tr "Spielplatzkontrolle Winterthur · Stand" %} {{ notice_date }}</p>
+  <section aria-labelledby="verantwortung">
+    <h2 id="verantwortung">{% tr "Verantwortung und Zweck" %}</h2>
+    <p>{% tr "Die Stadt Winterthur, Stadtgrün Winterthur, bearbeitet Personendaten zur Durchführung und Dokumentation von Spielplatzkontrollen, Mängelbehebung und Unterhalt. Kontakt:" %}
+      {{ contact_name }}, <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>{% tr ". Die Anschrift finden Sie im" %} <a href="{{ prefix }}/imprint/">{% tr "Impressum" %}</a>.</p>
+  </section>
+  <section aria-labelledby="daten">
+    <h2 id="daten">{% tr "Daten und Empfänger" %}</h2>
+    <p>{% tr "Bearbeitet werden Kontodaten einschliesslich Passwort-Hash, Rolle und Zuständigkeit, namentliche Kontroll- und Zuweisungshistorien, Zeitpunkte, Bemerkungen, Fotos und Dokumente. Bei unbekannter E-Mail-Adresse entsteht beim Anmelden ein inaktiver Zugangsantrag. Technische Zugriffsdaten, etwa IP-Adresse, Zeitpunkt und Fehlerangaben, können für Betrieb und Sicherheit protokolliert werden." %}</p>
+    <p>{% tr "Freigeschaltete Personen sehen die in der Anwendung bereitgestellten Fachdaten und Personenzuordnungen; aktive Kontaktdaten dienen der Zuweisung. Infomails an die zugewiesene Person enthalten Mängel- und Geräteangaben, Bemerkungen, den Absendernamen und vorhandene Mängelfotos." %}</p>
+    {% if operators_text %}<p class="privacy-operational-text">{{ operators_text|linebreaksbr }}</p>{% else %}
+    <p>{% tr "Auskünfte zu Betriebs- und Supportstellen sowie Speicher- und Zugriffsorten erteilt die Kontaktstelle." %}</p>{% endif %}
+  </section>
+  <section aria-labelledby="fotos">
+    <h2 id="fotos">{% tr "Fotos und Freitext" %}</h2>
+    <p>{% tr "Vermeiden Sie unnötige Personenangaben, erkennbare Personen und Kennzeichen. Fotos können GPS- und weitere Metadaten enthalten; diese werden nicht automatisch entfernt. Prüfen Sie auch PDFs auf unnötige Personendaten." %}</p>
+  </section>
+  <section aria-labelledby="browser">
+    <h2 id="browser">{% tr "Anmeldung und Browserentwürfe" %}</h2>
+    <p>{% tr "Für die Anmeldung wird ein technisch notwendiges Authentifizierungs-Cookie verwendet. Klassische CSRF-Formulartokens kommen nicht zum Einsatz. Schreibende Anfragen, die der Browser ausdrücklich als websiteübergreifend kennzeichnet, werden abgewiesen. Sitzungen gelten höchstens acht Stunden; Abmelden beendet die aktuelle Sitzung, Passwort- und administrative Kontoänderungen beenden alle betroffenen Sitzungen. Private Antworten sind gegen HTTP-Zwischenspeicherung gekennzeichnet." %}</p>
+    <p>{% tr "Inspektionsentwürfe liegen im jeweiligen Browsertab und werden bei erneutem Öffnen ab vier Stunden entfernt. Abschluss oder Abmelden entfernt den jeweiligen Entwurf beziehungsweise die Entwürfe im aktuellen Tab. Andere oder wiederhergestellte Tabs können Daten behalten: Melden Sie sich auf gemeinsam genutzten Geräten ab und schliessen Sie alle Tabs." %}</p>
+  </section>
+  <p>{% tr "Die persönliche Sprachauswahl wird im Konto und für öffentliche Seiten in einem Sprachcookie gespeichert. Default (Browser) entfernt die Vorgabe." %}</p>
+  <section aria-labelledby="push">
+    <h2 id="push">{% tr "Optionales Push" %}</h2>
+    <p>{% tr "Bei Aktivierung wird der Push-Dienst des Browseranbieters eingebunden, gegebenenfalls im Ausland. Abonnement, Schlüsselmaterial, Browserangaben und Zeitpunkte werden dem Konto zugeordnet. Meldungen können auf dem Sperrbildschirm erscheinen. Deaktivieren Sie Push in der Anwendung und entziehen Sie bei Bedarf die Browsererlaubnis; Abmelden allein deaktiviert Push nicht. Inaktive Abonnements werden nicht sofort gelöscht." %}</p>
+  </section>
+  <section aria-labelledby="aufbewahrung">
+    <h2 id="aufbewahrung">{% tr "Aufbewahrung" %}</h2>
+    <p>{% tr "Fachnachweise unterliegen den massgebenden Aufbewahrungs- und Archivvorgaben. Kontodeaktivierung löscht weder Berichte noch namentliche Historien automatisch. Mailkopien und Sicherungen sind gesondert zu berücksichtigen." %}</p>
+    {% if retention_text %}<p class="privacy-operational-text">{{ retention_text|linebreaksbr }}</p>{% else %}
+    <p>{% tr "Die konkreten Fristen für Konten, Anträge, Fachnachweise, Dateien, Logs, Push und Sicherungen erteilt die Kontaktstelle." %}</p>{% endif %}
+  </section>
+  <section aria-labelledby="rechte">
+    <h2 id="rechte">{% tr "Ihre Rechte" %}</h2>
+    <p>{% tr "Bei der Kontaktstelle können Sie Auskunft und Berichtigung sowie die Prüfung einer Löschung verlangen; Aufbewahrungspflichten bleiben vorbehalten. Senden Sie keine Passwörter oder Anmeldetokens. Unabhängige Beratung bietet die" %} <a href="https://stadt.winterthur.ch/datenschutzstelle/privatpersonen"
+      rel="noreferrer">{% tr "Datenschutzstelle Winterthur" %}</a>, <a href="mailto:datenschutz@win.ch">{% tr "datenschutz@win.ch" %}</a>.</p>
+  </section>
+</article>

@@ -1,0 +1,12 @@
+{
+  "name": "playground-check-browser-tests",
+  "private": true,
+  "scripts": {
+    "test": "npm run test:unit && npm run test:browser",
+    "test:unit": "node inspection-history.cjs && node i18n.cjs",
+    "test:browser": "node responsive.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

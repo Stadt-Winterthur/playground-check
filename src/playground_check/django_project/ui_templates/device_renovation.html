@@ -1,0 +1,11 @@
+<h1>{% tr "Sanierungsangaben bearbeiten" %}</h1>
+{% include "ui_error.html" with message=form_error server_failure=server_failure %}
+<form method="post" action="{{ prefix }}/device/edit/">
+<input type="hidden" name="fid" value="{{ fid }}">
+<p><label>{% tr "Empfohlenes Sanierungsjahr" %} <input type="number" name="recommendedYearOfRenovation" min="{{ minimum_year }}" max="2200" value="{% if properties.recommendedYearOfRenovation %}{{ properties.recommendedYearOfRenovation }}{% endif %}"></label></p>
+<p><label>{% tr "Sanierungsart (ID)" %} <select name="renovationType"><option value="">{% tr "Keine Angabe" %}</option>{% for option in renovation_options %}<option value="{{ option.id }}" {% if option.id|stringformat:"s" == properties.renovationType|stringformat:"s" %}selected{% endif %}>{{ option.value|ui }}</option>{% endfor %}</select></label></p>
+<p><label>{% tr "Kommentar zum empf. Sanierungsjahr" %} <textarea name="commentRecommendedYearOfRenovation" maxlength="2000">{{ properties.commentRecommendedYearOfRenovation }}</textarea></label></p>
+<button type="submit">{% tr "Sanierungsangaben speichern" %}</button>
+{% if saved %}<p role="status" data-renovation-saved>{% tr "gespeichert" %}</p>{% endif %}
+</form>
+<script defer src="{{ prefix }}/static/js/device-renovation.js"></script>

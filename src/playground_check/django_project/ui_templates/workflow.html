@@ -1,0 +1,6 @@
+<h1>{{ title|ui }}</h1><p>{% tr "Änderungen werden serverseitig geprüft und über die vorhandene Fachlogik gespeichert." %}</p>
+{% include "ui_error.html" with message=info %}
+<form action="{{ action }}" method="post" enctype="multipart/form-data">
+
+{% for key, label, kind in fields %}<p><label>{{ label|ui }} {% if kind == 'textarea' %}<textarea name="{{ key }}" maxlength="4000">{{ values.name|default:"" }}</textarea>{% else %}<input name="{{ key }}" type="{{ kind }}" {% if key == "name" %}value="{{ values.name|default:'' }}"{% elif key == "type" %}value="{{ values.type|default:'' }}"{% elif key == "playgroundId" %}value="{{ values.playgroundId|default:'' }}"{% endif %} {% if kind == 'file' %}accept="application/pdf"{% endif %}>{% endif %}</label></p>{% endfor %}
+<button type="submit">{% tr "Speichern" %}</button></form><div id="result" role="status"></div>

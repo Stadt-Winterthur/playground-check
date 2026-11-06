@@ -1,0 +1,18 @@
+<section class="welcome-hero" aria-labelledby="welcome-heading">
+  <div class="welcome-hero-inner">
+    <p class="welcome-hero-kicker">{% tr "Spielplatzkontrolle der Stadt Winterthur" %}</p>
+    <h1 id="welcome-heading">{% tr "Stadtgrün Winterthur" %}</h1>
+    <p class="welcome-hero-subtitle">{% tr "Departement Technische Betriebe" %}</p>
+  </div>
+</section>
+<section class="welcome-message" aria-label="{% tr "Willkommen" %}">
+  {% if private %}
+  <h2>{% tr "Willkommen bei der Spielplatzkontrolle" %}</h2>
+  {% else %}
+  <h2>{% tr "Willkommen im System für die Spielplatzkontrolle der Stadt Winterthur" %}</h2>
+  {% endif %}
+  <p>{% tr "Über das Navigationsmenü gelangen Sie zu den Spielgeräten, den Inspektionen und der Mängelverwaltung. Wählen Sie zunächst einen Spielplatz aus, um die zugehörigen Spielgeräte zu öffnen und zu kontrollieren." %}</p>
+  <p>{% tr "Die Anwendung ist für Desktop, Tablet und Smartphone optimiert. Für die Nutzung ist eine dauerhafte Internetverbindung erforderlich; die Spielplatzkontrolle ist nicht offline-fähig." %}</p>
+  <p class="welcome-version">v {{ app_version }}</p>
+  {% if not private %}<p class="welcome-signin"><a class="primary-button" href="{{ prefix }}/login/">{% tr "Anmelden" %}</a> <span>{% tr "Für Spielgeräte, Inspektionen und Mängel ist eine Anmeldung erforderlich." %}</span></p>{% endif %}
+</section>

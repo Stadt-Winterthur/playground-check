@@ -1,0 +1,5 @@
+<h1>{% tr "Anmeldung" %}</h1>{% include "ui_error.html" with message=error %}<form method="post" action="{{ prefix }}/login/">
+<p><label>{% tr "E-Mail" %} <input type="email" name="email" autocomplete="username" value="{{ email|default:'' }}" required></label></p>
+<p><label>{% tr "Passwort" %} <input type="password" name="password" autocomplete="current-password" required></label></p><button type="submit">{% tr "Anmelden" %}</button></form>
+<p class="privacy-hint">{% tr "Informationen zu Konten, Kontrollnachweisen und zur Zugangsfreigabe finden Sie unter" %}
+  <a href="{{ prefix }}/privacy/">{% tr "Datenschutz der Spielplatzkontrolle" %}</a>.</p>

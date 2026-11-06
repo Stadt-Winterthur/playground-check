@@ -1,0 +1,16 @@
+<article class="privacy-notice" aria-labelledby="imprint-title">
+  <h1 id="imprint-title">{% tr "Impressum" %}</h1>
+  <h2>{% tr "Herausgeberin" %}</h2>
+  <address>{% tr "Stadt Winterthur" %}<br>{% tr "Stadtgrün Winterthur" %}<br>{% tr "Turbinenstrasse 16" %}<br>{% tr "8403 Winterthur" %}<br>
+    {% tr "Telefon" %} <a href="tel:+41522673000">+41 52 267 30 00</a></address>
+  <h2>{% tr "Kontakt und Verantwortung" %}</h2>
+  <p>{% tr "Fachliche Verantwortung: Stadtgrün Winterthur." %}<br>
+    {% tr "Technische Umsetzung: Fachstelle Geoinformation der Stadt Winterthur." %}</p>
+  <p>{% tr "Kontakt zur Anwendung:" %} {{ contact_name }},
+    <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+  <h2>{% tr "Diese Anwendung" %}</h2>
+  <p>{% tr "Die Spielplatzkontrolle dient der Erfassung und Dokumentation von Kontrollen und Mängeln sowie der Koordination des Unterhalts. Die Fachfunktionen stehen freigeschalteten Personen zur Verfügung." %}</p>
+  <p>{% tr "Angaben zur Bearbeitung von Personendaten finden Sie in der" %}
+    <a href="{{ prefix }}/privacy/">{% tr "Datenschutzerklärung" %}</a>.</p>
+  <p><a href="{{ prefix }}/">{% tr "Zur Startseite" %}</a></p>
+</article>

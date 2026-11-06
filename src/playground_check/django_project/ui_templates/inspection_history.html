@@ -1,0 +1,29 @@
+<div data-inspection-history="{{ history_slot }}" hidden>
+<h3>{{ history_title|ui }}</h3>
+<div class="inspection-history-filter">
+<label for="history-type-{{ device.fid }}-{{ history_slot }}">{% tr "Bitte wählen Sie die Art der Inspektion:" %}</label>
+<select id="history-type-{{ device.fid }}-{{ history_slot }}" data-history-filter aria-label="{% tr "Art der Inspektion" %}">
+{% for group in history_groups %}<option value="{{ group.kind }}" {% if group.selected %}selected{% endif %}>{{ group.kind|ui_default:'Nicht angegeben' }} ({{ group.reports|length }})</option>{% endfor %}
+</select></div>
+{% for group in history_groups %}<section data-history-type="{{ group.kind }}" aria-label="{{ group.kind|ui_default:'Nicht angegeben' }}">
+{% for report in group.reports %}
+<article class="inspection-history-card">
+<h3>{{ report.inspectionText|ui_default:'[Diese Inspektion hat keinen Titel]' }}</h3>
+<div class="inspection-history-columns">
+<section><h4>{% tr "Metadaten" %}</h4>
+<p><strong>{% tr "Inspektionsart:" %}</strong> {{ report.inspectionType|ui_default:'Nicht angegeben' }}</p>
+<p><strong>{% tr "Kontrolleur:" %}</strong> {{ report.inspector|ui_default:'Unbekannt' }}</p>
+<p><strong>{% tr "Datum der Inspektion:" %}</strong> {{ report.service_date_display|ui_default:'Nicht angegeben' }}</p>
+<p><strong>{% tr "Fallschutz:" %}</strong> {{ report.fallProtectionType|ui_default:'nein' }}</p></section>
+<section><h4>{% tr "Prüfung" %}</h4>
+<p><strong>{% tr "Prüfung Text:" %}</strong><br>{{ report.inspectionText|ui_default:'[Die Prüfung dieser Inspektion hat keinen Text]'|linebreaksbr }}</p>
+<label class="inspection-checkbox"><input type="checkbox" disabled {% if report.inspectionDone %}checked{% endif %}> {% tr "Prüfung erledigt" %}</label>
+<p><strong>{% tr "Prüfung Kommentar:" %}</strong><br>{{ report.inspectionComment|ui_default:'[Kein Kommentar]'|linebreaksbr }}</p></section>
+<section><h4>{% tr "Wartung" %}</h4>
+<p><strong>{% tr "Wartung Text:" %}</strong><br>{{ report.maintenanceText|ui_default:'[Die Wartung dieser Inspektion hat keinen Text]'|linebreaksbr }}</p>
+<label class="inspection-checkbox"><input type="checkbox" disabled {% if report.maintenanceDone %}checked{% endif %}> {% tr "Wartung erledigt" %}</label>
+<p><strong>{% tr "Wartung Kommentar:" %}</strong><br>{{ report.maintenanceComment|ui_default:'[Kein Kommentar]'|linebreaksbr }}</p></section>
+</div></article>
+{% empty %}<p class="muted">{{ history_empty|ui }}</p>{% endfor %}
+</section>{% endfor %}
+</div>

@@ -1,0 +1,9 @@
+<h1>{% tr "Pruefbarkeit bei der Kontrolle" %}</h1>
+{% include "ui_error.html" with message=form_error server_failure=server_failure %}
+<p>{% tr "Spielgeraet FID" %} {{ fid }}{% tr ". Diese Einstellung gehoert zur Inspektion." %}</p>
+<form method="post" action="{{ prefix }}/device/checkability/">
+<input type="hidden" name="fid" value="{{ fid }}">
+<p><label><input type="checkbox" name="cannotBeChecked" value="1" {% if properties.cannotBeChecked %}checked{% endif %}> {% tr "Nicht pruefbar" %}</label></p>
+<p><label>{% tr "Begruendung, falls nicht pruefbar" %} <textarea name="cannotBeCheckedReason" maxlength="255">{{ properties.cannotBeCheckedReason }}</textarea></label></p>
+<input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
+<button type="submit">{% tr "Pruefbarkeit speichern" %}</button></form>

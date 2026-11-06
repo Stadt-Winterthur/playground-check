@@ -1,0 +1,2 @@
+# Pinned build backend, also used with --no-build-isolation.
+setuptools==84.2.1

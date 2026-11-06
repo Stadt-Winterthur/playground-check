@@ -1,0 +1,839 @@
+"""Historical HTTP entry points with shared domain helpers and codecs.
+
+The production WSGI entry is django_project.wsgi; these handlers remain for
+compatibility callers and regression tests.
+"""
+from __future__ import annotations
+
+import base64
+import binascii
+from typing import Any, Mapping
+from psycopg import Connection
+
+from . import account_identity, defect_serialization, playground_access
+from .domain_values import UNAUTHORIZED, DOTNET_MIN_DATE, VALID_ROLES, VALID_RESPONSIBILITIES
+from .document_codec import DOCUMENT_NAME_MARKER
+from .image_codec import ALLOWED_IMAGE_MIME_TYPES
+from .domain_values import _bool, _date_value, _valid_mail_address
+from .document_codec import _document_parts, _document_with_name, _document_name_from_tail, _document_storage
+from .image_codec import _decode_image, _mime, _image_upload_error, _image_request_too_large
+from .assignment_service import _user_name, _record_assignment_change, _assignment_history
+from .account_identity import _user_dict
+from .defect_serialization import _defect_creator_name
+from .playground_access import _playdevice_rows, _criteria, _inspection_history
+
+from playground_check.business_time import local_now, local_today
+
+
+from playground_check import session_repository
+
+from .auth import EMAIL, GIVEN_NAME, NAME, ROLE, decode_token, hash_passphrase, issue_token, verify_passphrase
+from .config import settings
+from playground_check.upload_limits import DOCUMENT_MAX_BYTES, IMAGE_MAX_BYTES, IMAGE_REQUEST_MAX_BYTES
+from .db import connect
+from . import remaining_reads_repository
+from . import user_repository, user_write_repository, document_write_repository, push_repository, assignment_repository, mail_repository, inspection_validation_repository
+from . import playground_repository, inspection_defect_repository, playground_detail_service, inspection_defect_service, defect_write_rules, defect_write_repository, inspection_write_repository, picture_write_repository, playdevice_write_repository
+from .http import Request, Response
+from .playground_reads import inspection_suspended as _suspended, public_feature as _public_feature
+from .map_image_queries import map_image_base64
+from .playground_detail_serializers import (
+    report_dict as _report_dict,
+    criterion_dict as _criterion_dict,
+    playdevice_feature,
+)
+
+
+USER_SELECT = user_repository.USER_SELECT
+
+
+def _request_token(request: Request) -> str:
+    return account_identity._request_token(request, config=settings)
+
+
+def _auth_cookie(token: str, *, clear: bool = False) -> tuple[str, str]:
+    return account_identity._auth_cookie(token, config=settings, clear=clear)
+
+
+def token_user(request: Request, role: str | None = None) -> dict[str, Any] | None:
+    return account_identity.token_user(request, role, config=settings)
+
+
+def current_user(request: Request, role: str | None = None, dry_run: bool = False) -> dict[str, Any] | None:
+    return account_identity.current_user(request, role, dry_run, connect_db=connect, config=settings)
+
+
+def require_token(request: Request, role: str | None = None) -> tuple[dict[str, Any] | None, Response | None]:
+    user = current_user(request, role)
+    return (user, None) if user else (None, Response.text(UNAUTHORIZED, 401))
+
+
+def require_user(request: Request, role: str | None = None) -> tuple[dict[str, Any] | None, Response | None]:
+    return account_identity.require_user(request, role, resolve_user=current_user)
+
+
+def revoke_request_session(request: Request) -> None:
+    account_identity.revoke_request_session(request, connect_db=connect, config=settings)
+
+
+def login(request: Request) -> Response:
+    body = request.json()
+    if not isinstance(body, dict) or body.get("mailAddress") is None:
+        return Response.text("Keine oder falsche Login-Daten.", 400)
+    email = str(body.get("mailAddress", "")).lower().strip()
+    password = body.get("passPhrase")
+    if (
+        not email
+        or any(char.isspace() for char in email)
+        or not _valid_mail_address(email)
+        or not isinstance(password, str)
+        or not password.strip()
+    ):
+        return Response.text("Keine oder falsche Login-Daten.", 400)
+    dry_run = _bool(request.query.get("dryRun"))
+    try:
+        with connect() as db:
+            row = None if dry_run else user_repository.user_by_email(db, email, for_update=True)
+            if row:
+                if row.get("last_login_attempt") is not None:
+                    elapsed = (row["database_time"] - row["last_login_attempt"]).total_seconds()
+                    if elapsed < 3:
+                        response = Response.text("Zu viele Login-Versuche. Bitte versuchen Sie es in Kürze erneut.", 429)
+                        response.headers.append(("Retry-After", str(max(1, 3 - int(elapsed)))))
+                        return response
+                user_write_repository.record_login_attempt(db, email)
+                password_ok, needs_upgrade = verify_passphrase(row.get("pwd") or "", password, email)
+                if password_ok and row.get("active"):
+                    if needs_upgrade:
+                        user_write_repository.update_password(db, email, hash_passphrase(password, email))
+                    user = _user_dict(row)
+                    user["lastName"] = user["lastName"] or "Nachname unbekannt"
+                    user["firstName"] = user["firstName"] or "Vorname unbekannt"
+                    token = issue_token(user)
+                    session_repository.create_session(db, token, user["fid"])
+                    response = Response.json({"securityTokenString": token, "user": user})
+                    response.headers.append(_auth_cookie(token))
+                    return response
+                return Response.text("Keine oder falsche Login-Daten.", 401)
+
+            # Preserved original quirk: dryRun also reaches this insert branch.
+            user_write_repository.register_pending_user(
+                db, body.get("lastName") or "", body.get("firstName") or "", email,
+                hash_passphrase(password, email),
+            )
+        return Response.text(
+            UNAUTHORIZED + "Der Administrator wird informiert und wird Ihnen gegebenenfalls den Zugriff gewähren.", 401
+        )
+    except Exception:
+        return Response.text("Ein kritischer Fehler ist aufgetreten. Bitte kontaktieren Sie den Administrator.", 400)
+
+
+def get_current_account(request: Request) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    return Response.json(user)
+
+
+def logout(request: Request) -> Response:
+    try:
+        revoke_request_session(request)
+    except Exception:
+        return Response.text("Abmeldung derzeit nicht möglich. Bitte erneut versuchen.", 503)
+    response = Response(b"", 204, "application/json; charset=utf-8")
+    response.headers.append(_auth_cookie("", clear=True))
+    return response
+
+def get_users(request: Request) -> Response:
+    _, error = require_user(request, "administrator")
+    if error:
+        return error
+    email = request.query.get("email", "").strip().lower()
+    with connect() as db:
+        rows = user_repository.users(db, email)
+    return Response.json([_user_dict(row) for row in rows if row.get("email")])
+
+
+def get_assignable_users(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        rows = user_repository.assignable_users(db)
+    return Response.json([_user_dict(row) for row in rows])
+
+
+def update_user(request: Request) -> Response:
+    _, error = require_user(request, "administrator")
+    if error:
+        return error
+    body = request.json()
+    if not isinstance(body, dict):
+        return Response.json({"errorMessage": "SPK-3"})
+    password = str(body.get("passPhrase") or "")
+    body["passPhrase"] = ""
+    email = str(body.get("mailAddress") or "").strip().lower()
+    if not email or "@" not in email:
+        return Response.json({"errorMessage": "SPK-3"})
+    role = str(body.get("role") or "").strip()
+    responsibility = str(body.get("responsibility") or "").strip()
+    if role not in VALID_ROLES or (responsibility and responsibility not in VALID_RESPONSIBILITIES):
+        return Response.json({"errorMessage": "SPK-3"})
+    change_passphrase = _bool(request.query.get("changePassphrase"))
+    try:
+        with connect() as db:
+            existing = user_repository.users_by_email(db, email)
+            if len(existing) != 1:
+                return Response.json({"errorMessage": "SPK-3"})
+            active_admins = user_write_repository.active_admin_count(db)
+            old = existing[0]
+            if old["role"] == "administrator" and active_admins == 1:
+                if body.get("role") != "administrator" or not _bool(body.get("active")):
+                    return Response.json({"errorMessage": "SPK-3"})
+            affected = user_write_repository.update_user(
+                db, email, body.get("lastName") or "", body.get("firstName") or "",
+                role, responsibility or None, _bool(body.get("active")), _bool(body.get("isNew")),
+            )
+            password_affected = 0
+            if change_passphrase:
+                password = password.strip()
+                if len(password) < 8:
+                    return Response.json({"errorMessage": "SPK-9"})
+                password_affected = user_write_repository.update_password(
+                    db, email, hash_passphrase(password, email),
+                )
+            if affected == 1 and (not change_passphrase or password_affected == 1):
+                body.setdefault("errorMessage", "")
+                return Response.json(body)
+    except Exception:
+        pass
+    return Response.json({"errorMessage": "SPK-3"})
+
+
+def delete_user(request: Request) -> Response:
+    _, error = require_user(request, "administrator")
+    if error:
+        return error
+    email = request.query.get("email", "").strip().lower()
+    if not email:
+        return Response.json({"errorMessage": "SPK-3"})
+    with connect() as db:
+        users = user_repository.users_by_email(db, email)
+        if len(users) != 1:
+            return Response.json({"errorMessage": "SPK-3"})
+        count = user_write_repository.active_admin_count(db)
+        if users[0]["role"] == "administrator" and count == 1:
+            return Response.json({"errorMessage": "SPK-3"})
+        if user_write_repository.deactivate_user(db, email) == 1:
+            return Response(b"", 200, "application/json; charset=utf-8")
+    return Response.json({"errorMessage": "SPK-3"})
+
+
+def inspection_types(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        rows = remaining_reads_repository.inspection_type_rows(db)
+    return Response.json([f"{row['value']} ({row['short_value']})" for row in rows])
+
+
+def renovation_types(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        rows = remaining_reads_repository.renovation_type_rows(db)
+    return Response.json([row["value"] for row in rows])
+
+
+def only_names(request: Request) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    return Response.json(playground_only_names_data(user, request.query))
+
+
+def playground_only_names_data(user: Mapping[str, Any] | None, query: Mapping[str, str]) -> list[dict[str, Any]]:
+    return playground_access.playground_only_names_data(user, query, connect_db=connect)
+
+
+def public_playgrounds(request: Request) -> Response:
+    try:
+        with connect() as db:
+            rows = remaining_reads_repository.public_playground_rows(db)
+        return Response.json([_public_feature(row) for row in rows])
+    except Exception:
+        return Response.json([_public_feature(error="Unknown critical error.")])
+
+
+def public_playground(request: Request) -> Response:
+    uuid = request.params.get("uuid", "").strip().lower()
+    if not uuid:
+        return Response.json(_public_feature(error="No valid UUID provided."))
+    try:
+        with connect() as db:
+            row = remaining_reads_repository.public_playground_by_uuid(db, uuid)
+        if not row:
+            return Response.json(_public_feature({"uuid": uuid}, "No playground found for given UUID."))
+        return Response.json(_public_feature(row))
+    except Exception:
+        return Response.json(_public_feature({"uuid": uuid}, "Unknown critical error."))
+
+
+def get_map_image(request: Request) -> Response:
+    return Response.json(map_image_base64(request.query))
+
+
+def _defect_dict(db: Connection, row: Mapping[str, Any], pictures: bool = True) -> dict[str, Any]:
+    return defect_serialization._defect_dict(db, row, pictures,
+                                           creator_name=_defect_creator_name, history=_assignment_history)
+
+
+def _playdevice(db: Connection, row: Mapping[str, Any], inspection_type: str, with_defects: bool, with_inspections: bool) -> dict[str, Any]:
+    return playground_access._playdevice(db, row, inspection_type, with_defects, with_inspections,
+                                        load_criteria=_criteria, load_history=_inspection_history,
+                                        serialize_defect=_defect_dict)
+
+
+def _playground_result(db: Connection, row: Mapping[str, Any], inspection_type: str, with_defects: bool, with_inspections: bool) -> dict[str, Any]:
+    """Compatibility entry point shared by the legacy and DRF read paths."""
+    return playground_detail_service.build_playground_detail(
+        db, row, inspection_type, with_defects, with_inspections,
+        load_devices=_playdevice_rows,
+        build_device=_playdevice,
+        document_name=_document_name_from_tail,
+        compatibility_bugs=settings.compatibility_bugs,
+        min_date=DOTNET_MIN_DATE,
+    )
+
+
+def playground_by_name_data(query: Mapping[str, str]) -> dict[str, Any]:
+    return playground_access.playground_by_name_data(query, connect_db=connect, build_result=_playground_result)
+
+
+def get_playground_by_name(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    return Response.json(playground_by_name_data(request.query))
+
+def invalid_playground_id(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    invalid_id = request.params.get("invalid_id", "")
+    return Response.json({
+        "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+        "title": "One or more validation errors occurred.",
+        "status": 400,
+        "errors": {"id": [f"The value '{invalid_id}' is not valid."]},
+    }, 400)
+
+
+def playground_by_id_data(fid: int, query: Mapping[str, str]) -> dict[str, Any] | None:
+    return playground_access.playground_by_id_data(fid, query, connect_db=connect, build_result=_playground_result)
+
+
+def get_playground_by_id(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    if settings.compatibility_bugs:
+        return Response.text("Index was outside the bounds of the array.", 500)
+    with connect() as db:
+        row = remaining_reads_repository.playground_by_fid(db, int(request.params["id"]))
+        result = _playground_result(db, row, request.query.get("inspectiontype", ""),
+            _bool(request.query.get("withdefects")), _bool(request.query.get("withinspections"))) if row else None
+    return Response.json(result)
+
+
+def get_playground_by_device(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    return Response.json(playground_by_device_data(int(request.params["fid"])))
+
+
+def playground_by_device_data(fid: int) -> dict[str, Any]:
+    return playground_access.playground_by_device_data(fid, connect_db=connect,
+                                                     load_devices=_playdevice_rows, build_device=_playdevice)
+
+
+def save_playdevice(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    body = request.json()
+    from .playdevice_service import save_device, DeviceWriteError
+    if not isinstance(body, dict):
+        return Response.json({"errorMessage": "Ungültige Eingabe."}, 400)
+    props = body.get("properties", {})
+    if not props:
+        return Response.json({"errorMessage": "SPK-5"})
+    try:
+        with connect() as db:
+            save_device(db, props)
+        return Response.json({"errorMessage": ""})
+    except DeviceWriteError as exc:
+        return Response.json({"errorMessage": str(exc)}, exc.status)
+    except Exception:
+        return Response.json({"errorMessage": "SPK-3"}, 503)
+
+
+def get_defect_overview(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        rows = remaining_reads_repository.defect_overview_rows(db)
+    result = []
+    for row in rows:
+        result.append({
+            "tid": row["tid"],
+            "playdeviceFid": row.get("playdevice_fid") or 0,
+            "playgroundName": row.get("playground_name") or "",
+            "playdeviceType": row.get("playdevice_type") or "",
+            "standard": row.get("standard") or "",
+            "priority": row.get("priority") if row.get("priority") is not None else -1,
+            "defectDescription": row.get("description") or "",
+            "defectComment": row.get("comment") or "",
+            "dateCreation": row.get("date_creation"),
+            "dateDone": row.get("date_done"),
+            "done": row.get("done_by") is not None,
+            "defectsResponsibleBodyId": row.get("responsible_body_id") or -1,
+            "responsibleUserFid": row.get("responsible_user_fid") or -1,
+            "responsibleUserName": row.get("responsible_user_name") or "",
+            "assignmentOverdue": bool(row.get("assignment_overdue")),
+        })
+    return Response.json(result)
+
+
+def get_defect(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        row = inspection_defect_repository.defect_by_tid(db, int(request.query.get("tid", "0")))
+        result = _defect_dict(db, row) if row else None
+    return Response.json(result)
+
+
+# Backward-compatible alias used by existing write endpoints.
+_priority_two_fields_complete = defect_write_rules.priority_two_fields_complete
+
+def create_defect(request: Request) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    body = request.json() or {}
+    body.pop("done", None)
+    if not body.get("defectDescription"):
+        return Response.json(body)
+    if not _priority_two_fields_complete(body):
+        body["errorMessage"] = "SPK-10"
+        return Response.json(body)
+    try:
+        responsible = defect_write_rules.responsible_user_fid(body)
+        date_done = local_today() if body.get("dateDone") is not None else None
+        with connect() as db:
+            row = defect_write_repository.insert_defect(
+                db, body, user, date_done, responsible,
+                defect_write_rules.responsible_body_id(body),
+                local_now() if responsible > 0 else None,
+            )
+            if responsible > 0:
+                _record_assignment_change(db, int(row["tid"]), user, None, responsible)
+            body["assignmentHistory"] = _assignment_history(db, int(row["tid"]))
+        body["tid"] = row["tid"]
+        body.setdefault("errorMessage", "")
+    except Exception:
+        body["errorMessage"] = "SPK-3"
+    return Response.json(body)
+
+
+def update_defect(request: Request) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    body = request.json() or {}
+    if not body:
+        return Response.json({"errorMessage": "SPK-4"})
+    if not _priority_two_fields_complete(body):
+        return Response.json({"errorMessage": "SPK-10"})
+    try:
+        responsible = defect_write_rules.responsible_user_fid(body)
+        date_done = _date_value(body.get("dateDone"))
+        with connect() as db:
+            current = defect_write_repository.current_responsible(db, body.get("tid"))
+            if not current:
+                return Response.json({"errorMessage": "SPK-3"})
+            (new_responsible, assignment_changed, assignment_status_value,
+             assignment_created_value, assignment_comment_value) = defect_write_rules.update_assignment_fields(
+                body, current.get("responsible_user_fid"), parse_date=_date_value,
+            )
+            defect_write_repository.update_defect(
+                db, body, date_done, defect_write_rules.responsible_body_id(body),
+                new_responsible, assignment_status_value, assignment_created_value,
+                assignment_comment_value, user["fid"] if date_done else None,
+            )
+            _record_assignment_change(
+                db, int(body.get("tid")), user, current.get("responsible_user_fid"), new_responsible,
+            )
+        return Response.json({"errorMessage": ""})
+    except Exception:
+        return Response.json({"errorMessage": "SPK-3"})
+
+
+def assignment_status(request: Request, accepted: bool) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    body = request.json() or {}
+    comment = (body.get("assignmentComment") or "").strip() or None
+    with connect() as db:
+        affected = assignment_repository.update_assignment_status(
+            db, int(request.params["tid"]), user["fid"], user["mailAddress"], comment, accepted,
+        )
+    return Response.json({"errorMessage": "" if affected == 1 else "SPK-3"})
+
+
+def send_info_mail(request: Request) -> Response:
+    # Send a defect notification using server-side recipient data.
+    user, error = require_user(request)
+    if error:
+        return error
+    tid = int(request.params["tid"])
+    from .mail_service import MailAttachment, compose_defect_mail, deliver, MailConfigurationError
+
+    try:
+        with connect() as db:
+            row = mail_repository.defect(db, tid)
+            if not row:
+                return Response.text("Mangel nicht gefunden.", 404)
+            recipient = mail_repository.recipient(db, row.get("responsible_user_fid"))
+            if not recipient or not recipient.get("active") or not recipient.get("email") or not _valid_mail_address(recipient["email"]):
+                return Response.text("Die zuständige Person hat keine gültige aktive E-Mail-Adresse.", 400)
+            device_row = mail_repository.device(db, row["playdevice_fid"])
+            if not device_row:
+                return Response.text("Zugehöriges Spielgerät nicht gefunden.", 404)
+            picture_rows = mail_repository.pictures(db, tid)
+            attachments = []
+            for index, picture in enumerate(picture_rows, 1):
+                data, mime = _decode_image(picture.get("picture"))
+                if data:
+                    if mime not in ALLOWED_IMAGE_MIME_TYPES:
+                        return Response.text("Ungültiger Bildtyp in den Mängelfotos.", 400)
+                    ext = {"image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp"}[mime]
+                    attachments.append(MailAttachment(f"Mangel-{tid}-Foto-{index}.{ext}", mime, data))
+            message = compose_defect_mail(row, device_row, recipient, user, attachments)
+            recipient_fid = recipient["fid"]
+        # No database transaction is held open during the external SMTP call.
+        deliver(message, recipient["email"])
+        with connect() as db:
+            mail_repository.mark_sent(db, tid, recipient["name"], recipient_fid)
+            updated = mail_repository.defect(db, tid)
+            result = _defect_dict(db, updated) if updated else None
+        return Response.json(result)
+    except (OSError, TimeoutError, MailConfigurationError, __import__("smtplib").SMTPException) as exc:
+        import logging
+        logging.getLogger(__name__).error("Infomail for defect %s failed: %s", tid, exc)
+        return Response.text("Infomail konnte nicht an den Mailserver übergeben werden.", 502)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Infomail error for defect %s", tid)
+        return Response.text("Infomail konnte nicht abgeschlossen werden. Bitte Versandstatus prüfen.", 500)
+
+
+def get_playdevice_picture(request: Request) -> Response:
+    if _bool(request.query.get("dryRun")):
+        return Response(b"", 200, "application/json; charset=utf-8")
+    _, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        row = remaining_reads_repository.playdevice_picture(db, int(request.params["fid"]))
+    if not row or row["picture"] is None:
+        return Response.text("Kein Bild vorhanden.", 404)
+    data, mime = _decode_image(row["picture"])
+    return Response.file(data, mime) if data else Response.text("Kein Bild vorhanden.", 404)
+
+
+def exchange_playdevice_picture(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    fid = int(request.query.get("fid") or 0)
+    if fid < 1:
+        return Response.json({"errorMessage": "SPK-7"})
+    if _image_request_too_large(request):
+        return Response.text("Bild-Upload ist zu gross.", 413)
+    body = request.json() or {}
+    data = body.get("data") if "data" in body else body.get("Data")
+    data = data.strip() if isinstance(data, str) else data
+    if not data:
+        return Response.json({"errorMessage": "SPK-6"})
+    image_error = _image_upload_error(data)
+    if image_error:
+        return Response.text(image_error, 400)
+    if not _bool(request.query.get("dryRun")):
+        with connect() as db:
+            picture_write_repository.update_playdevice_picture(db, fid, str(data).encode("ascii", "replace"))
+    return Response.json({"errorMessage": ""})
+
+
+def put_playdevice_picture(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    if _bool(request.query.get("dryRun")):
+        return Response(b"", 200, "application/json; charset=utf-8")
+    if _image_request_too_large(request):
+        return Response.text("Bild-Upload ist zu gross.", 413)
+    body = request.json() or {}
+    data = body.get("data") if "data" in body else body.get("Data")
+    image_error = _image_upload_error(data)
+    if image_error:
+        return Response.text(image_error, 400)
+    with connect() as db:
+        picture_write_repository.update_playdevice_picture(db, int(request.params["fid"]), data)
+    return Response(b"", 200, "application/json; charset=utf-8")
+
+
+def get_defect_picture(request: Request) -> Response:
+    if _bool(request.query.get("dryRun")):
+        return Response(b"", 200, "application/json; charset=utf-8")
+    _, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        row = remaining_reads_repository.defect_picture(db, int(request.params["tid"]), _bool(request.query.get("thumb")))
+    if not row or row["value"] is None:
+        return Response.text("Kein Bild vorhanden.", 404)
+    data, mime = _decode_image(row["value"])
+    return Response.file(data, mime) if data else Response.text("Kein Bild vorhanden.", 404)
+
+
+def put_defect_picture(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    if _image_request_too_large(request):
+        return Response.text("Bild-Upload ist zu gross.", 413)
+    body = request.json() or {}
+    picture = body.get("base64StringPicture") or ""
+    thumbnail = body.get("base64StringPictureThumb") or ""
+    for value in (picture, thumbnail):
+        image_error = _image_upload_error(value)
+        if image_error:
+            return Response.text(image_error, 400)
+    with connect() as db:
+        row = picture_write_repository.insert_defect_picture(
+            db, int(request.params["tid"]), picture, thumbnail,
+            _bool(body.get("afterFixing")),
+        )
+    return Response.json({"tid": row["tid"]}) if row else Response(b"", 400)
+
+
+def post_inspections(request: Request) -> Response:
+    user = current_user(request, dry_run=_bool(request.query.get("dryRun")))
+    if not user:
+        return Response.text("Unauthorized", 401)
+    if user.get("role") == "maintenance":
+        return Response.text("Benutzer der Rolle Wartung dürfen keine Kontrollen durchführen.", 403)
+    reports = request.json()
+    if not isinstance(reports, list) or not reports:
+        return Response.json({"errorMessage": "SPK-0"})
+    inspection_type = reports[0].get("inspectionType") or ""
+    if not inspection_type or any(report.get("inspectionType") != inspection_type for report in reports):
+        return Response.json({"errorMessage": "SPK-6"})
+    base_type = inspection_type[:-5] if len(inspection_type) > 4 else inspection_type
+    service_date = local_today()
+    try:
+        with connect() as db:
+            inspector = inspection_validation_repository.inspector(db, user["mailAddress"])
+            type_row = inspection_validation_repository.inspection_type(db, base_type)
+            first_fid = int(reports[0].get("playdeviceFid") or 0)
+            playground = inspection_validation_repository.device_playground(db, first_fid)
+            inspector_fid = inspector["fid"] if inspector else None
+            type_id = type_row["id"] if type_row else None
+            playground_fid = playground["fid_spielplatz"] if playground else None
+            if not inspector_fid or not type_id or not playground_fid:
+                return Response.json({"errorMessage": "SPK-11"})
+            authorized = inspection_validation_repository.is_authorized(db, inspector_fid, playground_fid, type_id)
+            if not authorized:
+                return Response.json({"errorMessage": "SPK-11"})
+            for report in reports:
+                fid = int(report.get("playdeviceFid") or 0)
+                if not fid:
+                    return Response.json({"errorMessage": "SPK-12"})
+                device_playground = inspection_validation_repository.device_playground(db, fid)
+                if not device_playground or device_playground["fid_spielplatz"] != playground_fid:
+                    return Response.json({"errorMessage": "SPK-12"})
+            inspection_write_repository.lock_inspection_tables(db)
+            duplicate = inspection_validation_repository.duplicate_inspection(db, playground_fid, type_id, service_date)
+            if duplicate:
+                return Response.json({"errorMessage": "SPK-2"})
+            target = None
+            target_column = {1: "dat_naech_visu_insp", 2: "dat_naech_oper_insp", 3: "dat_naech_haupt_insp"}.get(type_id)
+            if target_column and playground_fid:
+                target_row = inspection_validation_repository.target_date_row(db, playground_fid, target_column)
+                target = target_row["target"] if target_row else None
+            inspection_tid = inspection_write_repository.insert_inspection(
+                db, type_id, playground_fid, service_date, inspector_fid, target,
+            )
+            for report in reports:
+                fid = int(report.get("playdeviceFid") or 0)
+                if not fid:
+                    raise ValueError("Missing playdevice fid")
+                device = inspection_validation_repository.device_check_state(db, fid)
+                if not device or device.get("nicht_zu_pruefen") or device.get("nicht_pruefbar"):
+                    continue
+                inspection_write_repository.insert_report(
+                    db, inspection_tid, fid, report, inspection_type, service_date,
+                    f"{user['firstName']} {user['lastName']}", _bool,
+                )
+        return Response.json({"errorMessage": ""})
+    except Exception:
+        return Response.json({"errorMessage": "SPK-3"})
+
+
+def get_document(request: Request) -> Response:
+    _, error = require_user(request)
+    if error:
+        return error
+    kind = request.query.get("type", "").strip().lower()
+    storage = _document_storage(kind)
+    if not storage:
+        return Response(b"", 400)
+    table, column = storage
+    try:
+        with connect() as db:
+            row = remaining_reads_repository.document_blob(db, table, column, int(request.params["fid"]))
+        if not row:
+            return Response(b"", 400)
+        content, _ = _document_parts(row["content"])
+        return Response.file(content, "application/pdf")
+    except Exception:
+        return Response(b"", 400)
+
+
+def post_document(request: Request) -> Response:
+    _, error = require_user(request, "administrator")
+    if error:
+        return error
+    body = request.json() or {}
+    kind = str(body.get("type") or "").strip().lower()
+    storage = _document_storage(kind)
+    name = str(body.get("name") or "").strip()
+    try:
+        playground_id = int(body.get("playgroundId"))
+        content = base64.b64decode(str(body.get("contentBase64") or ""), validate=True)
+    except (TypeError, ValueError, binascii.Error):
+        return Response.json({"errorMessage": "Ungültige Dokumentdaten."}, 400)
+    if not storage or playground_id <= 0 or not name or len(name) > 255:
+        return Response.json({"errorMessage": "Ungültige Dokumentdaten."}, 400)
+    if len(content) > DOCUMENT_MAX_BYTES or not content.startswith(b"%PDF-"):
+        return Response.json({"errorMessage": "Es sind nur PDF-Dokumente bis 20 MB zulässig."}, 400)
+    table, column = storage
+    try:
+        with connect() as db:
+            fid = document_write_repository.insert_document(
+                db, table, column, playground_id, _document_with_name(content, name)
+            )
+        return Response.json({"fid": fid, "name": name})
+    except Exception:
+        return Response.json({"errorMessage": "Dokument konnte nicht gespeichert werden."}, 400)
+
+
+def rename_document(request: Request) -> Response:
+    _, error = require_user(request, "administrator")
+    if error:
+        return error
+    kind = request.query.get("type", "").strip().lower()
+    storage = _document_storage(kind)
+    body = request.json() or {}
+    name = str(body.get("name") or "").strip()
+    if not storage or not name or len(name) > 255:
+        return Response.json({"errorMessage": "Ungültiger Dokumentname."}, 400)
+    table, column = storage
+    try:
+        fid = int(request.params["fid"])
+        with connect() as db:
+            row = document_write_repository.document_content(db, table, column, fid)
+            if not row or not row.get("content"):
+                return Response.json({"errorMessage": "Dokument nicht gefunden."}, 404)
+            document_write_repository.rename_document(
+                db, table, column, fid, _document_with_name(row["content"], name)
+            )
+        return Response.json({"fid": fid, "name": name})
+    except Exception:
+        return Response.json({"errorMessage": "Dokumentname konnte nicht gespeichert werden."}, 400)
+
+
+def delete_document(request: Request) -> Response:
+    _, error = require_user(request, "administrator")
+    if error:
+        return error
+    kind = request.query.get("type", "").strip().lower()
+    storage = _document_storage(kind)
+    if not storage:
+        return Response.json({"errorMessage": "Ungültiger Dokumenttyp."}, 400)
+    table, _ = storage
+    try:
+        fid = int(request.params["fid"])
+        with connect() as db:
+            row = document_write_repository.delete_document(db, table, fid)
+            if not row:
+                return Response.json({"errorMessage": "Dokument nicht gefunden."}, 404)
+        return Response.json({"fid": fid})
+    except Exception:
+        return Response.json({"errorMessage": "Dokument konnte nicht gelöscht werden."}, 400)
+
+
+def push_register(request: Request) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    body = request.json() or {}
+    try:
+        endpoint = body["endpoint"].strip()
+        p256dh = body["p256dh"].strip()
+        auth = body["auth"].strip()
+        if not endpoint or not p256dh or not auth:
+            raise ValueError("Incomplete subscription")
+        with connect() as db:
+            push_repository.register_subscription(
+                db, user["fid"], endpoint, p256dh, auth,
+                (body.get("userAgent") or request.headers.get("User-Agent", "")).strip() or None,
+            )
+        return Response.json({"errorMessage": ""})
+    except Exception:
+        return Response.json({"errorMessage": "SPK-3"})
+
+
+def push_unregister(request: Request) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    body = request.json() or {}
+    try:
+        endpoint = (body.get("endpoint") or "").strip()
+        if not endpoint:
+            raise ValueError("Missing endpoint")
+        with connect() as db:
+            push_repository.unregister_subscription(db, user["fid"], endpoint)
+        return Response.json({"errorMessage": ""})
+    except Exception:
+        return Response.json({"errorMessage": "SPK-3"})
+
+
+def push_me(request: Request) -> Response:
+    user, error = require_user(request)
+    if error:
+        return error
+    with connect() as db:
+        rows = push_repository.active_subscriptions(db, user["fid"])
+    return Response.json([{
+        "endpoint": row["endpoint"], "p256dh": row["p256dh"], "auth": row["auth"], "userAgent": row["user_agent"]
+    } for row in rows])

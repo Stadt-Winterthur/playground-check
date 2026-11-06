@@ -1,0 +1,13 @@
+# Tested Python 3.12 / Linux dependency set, including transitive dependencies.
+# Update pins together, then run the full CI suite and pip check.
+Django==5.2.19
+djangorestframework==3.18.3
+asgiref==3.13.0
+sqlparse==0.6.1
+psycopg[binary]==3.3.8
+psycopg-binary==3.3.8
+python-dotenv==1.2.4
+tzdata==2026.5
+typing_extensions==4.16.0
+gunicorn==23.0.0
+packaging==26.3

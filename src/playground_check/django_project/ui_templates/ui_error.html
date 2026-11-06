@@ -1,0 +1,11 @@
+{% if message %}
+<div class="app-form-error" role="alert" aria-live="assertive" tabindex="-1" data-ui-outcome="error">
+  <strong>{% tr "Aktion nicht abgeschlossen" %}</strong>
+  <p>{{ message|ui }}</p>
+  {% if server_failure %}
+  <p class="app-error-guidance">{% tr "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support." %}</p>
+  {% else %}
+  <p class="app-error-guidance">{% tr "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden." %}</p>
+  {% endif %}
+</div>
+{% endif %}

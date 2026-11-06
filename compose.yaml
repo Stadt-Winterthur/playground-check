@@ -1,0 +1,61 @@
+services:
+  spielplatzkontrolle:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: playground-check-python:test
+    container_name: spielplatzkontrolle
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${PLAYGROUND_BIND_ADDRESS:-127.0.0.1}:${PLAYGROUND_PUBLISHED_PORT:-8010}:8010"
+    env_file:
+      - .env
+    environment:
+      PLAYGROUND_POSTGRES_DSN: "${PLAYGROUND_POSTGRES_DSN:?In .env setzen}"
+      PLAYGROUND_SECURITY_KEY: "${PLAYGROUND_SECURITY_KEY:?In .env setzen}"
+      PLAYGROUND_SALT_BASE64: "${PLAYGROUND_SALT_BASE64:?In .env setzen}"
+      PLAYGROUND_SERVICE_URL: "${PLAYGROUND_SERVICE_URL:?In .env setzen}"
+      PLAYGROUND_BASE_PATH: "${PLAYGROUND_BASE_PATH:-}"
+      PLAYGROUND_TITLE: "${PLAYGROUND_TITLE:-Spielplatzkontrolle (TEST)}"
+      PLAYGROUND_WMS_URL: "${PLAYGROUND_WMS_URL:-http://stadtplan.winterthur.ch/wms/Spielplatzkarte}"
+      PLAYGROUND_COMPATIBILITY_BUGS: "${PLAYGROUND_COMPATIBILITY_BUGS:-true}"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+    networks:
+      - postgis
+      - nginx
+
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import os, urllib.request; p=os.environ.get('PLAYGROUND_BASE_PATH', '').strip(); p='' if not p or p=='/' else '/' + p.strip('/'); urllib.request.urlopen(f'http://127.0.0.1:8010{p}/api/health', timeout=2)
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  postgis:
+    name: postgis
+    external: true
+
+  nginx:
+    name: nginx
+    external: true

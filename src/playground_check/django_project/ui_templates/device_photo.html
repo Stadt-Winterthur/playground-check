@@ -1,0 +1,11 @@
+{% if name %}<a class="back-link" href="{{ prefix }}/detail/?name={{ name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">{% tr "Zum Spielplatz" %}</a>{% endif %}
+<h1>{% tr "Foto ersetzen" %}</h1><p>{% tr "Spielgeraet FID" %} {{ fid }}{% tr ". Das neue Bild ersetzt das bisherige Foto." %}</p>
+<img class="photo-preview" src="{{ prefix }}/Playdevice/{{ fid }}/Picture/" alt="{% tr "Aktuelles Geraetefoto" %}" loading="lazy">
+<form method="post" action="{{ prefix }}/device/photo/" enctype="multipart/form-data">
+
+<input type="hidden" name="fid" value="{{ fid }}"><input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="inspectiontype" value="{{ kind }}">
+<p><label for="picture">{% tr "Neues Foto auswaehlen oder mit der Kamera aufnehmen" %}</label>
+<input id="picture" name="picture" type="file" accept="image/jpeg,image/png" required></p>
+<p class="muted">{% tr "JPEG oder PNG, maximal 10 MiB." %}</p>
+{% include "photo_privacy_hint.html" %}
+<button type="submit">{% tr "Foto ersetzen" %}</button> {% if name %}<a href="{{ prefix }}/detail/?name={{ name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">{% tr "Abbrechen" %}</a>{% endif %}</form>

@@ -1,0 +1,202 @@
+<link rel="stylesheet" href="{{ prefix }}/static/css/playground-tabs.css">
+<div class="page-heading">
+  <p class="eyebrow">{% tr "Spielplatz" %}</p>
+  <h1>{{ playground.name }}</h1>
+  {% if playground.address %}<p>{{ playground.address }}</p>{% endif %}
+</div>
+{% if playground.inspectionSuspended %}<div class="notice warning" role="status">{% tr "Inspektionen sind für diesen Spielplatz derzeit ausgesetzt." %}</div>{% endif %}
+
+<div class="playground-tabs" aria-label="{% tr "Spielplatzbereiche" %}">
+  <input class="playground-tab-input" type="radio" name="playground-tab" id="playground-tab-devices" {% if not documents_tab %}checked{% endif %}>
+  <input class="playground-tab-input" type="radio" name="playground-tab" id="playground-tab-documents" {% if documents_tab %}checked{% endif %}>
+  <div class="playground-tab-nav" role="group" aria-label="{% tr "Bereich auswählen" %}">
+    <label for="playground-tab-devices">{% tr "Spielgeräte" %} <span class="muted">({{ playground.playdevices|length }})</span></label>
+    <label for="playground-tab-documents">{% tr "Dokumente" %}</label>
+  </div>
+  <div class="playground-tab-panel playground-tab-devices" id="devices">
+<h2>{% tr "Spielgeräte" %} <span class="muted">({{ playground.playdevices|length }})</span></h2>
+<div class="device-grid">{% for device in playground.playdevices %}{% with p=device.properties %}
+<article class="device-card device-card--structured">
+  <div class="device-card-title"><div><h3>{{ p.type.description|default:p.type.name|ui_default:'Spielgerät' }}</h3><p class="device-subtitle">{{ p.type.name|ui_default:'Spielgerät' }}</p></div>
+  {% if p.hasOpenDefects %}<span class="status warning">{% tr "Offene Mängel" %}</span>{% endif %}
+  {% if p.notToBeChecked %}<span class="status">{% tr "Nicht zu prüfen" %}</span>{% elif p.cannotBeChecked %}<span class="status">{% tr "Nicht prüfbar" %}</span>{% endif %}</div>
+  <div class="device-photo"><img data-fallback-src="{{ prefix }}/static/assets/no-device-photo.svg" src="{{ prefix }}/Playdevice/{{ p.fid }}/Picture/" alt="{% tr "Foto:" %} {{ p.type.description|default:p.type.name|ui_default:'Spielgerät' }}" loading="lazy" decoding="async"></div>
+  <p class="device-photo-action"><a class="secondary-button" href="{{ prefix }}/device/photo/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">{% tr "Foto ersetzen / aufnehmen" %}</a></p>
+  <details class="device-map"><summary>{% tr "Karte / Standort" %}</summary>
+    {% if device.geometry.coordinates.0 != None and device.geometry.coordinates.1 != None %}<img class="device-map-image" src="{{ prefix }}/device/map/?x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}" alt="{% tr "Kartenausschnitt des Spielgeraets" %}" loading="lazy" decoding="async">
+    <p><a href="https://stadtplan.winterthur.ch/mini?gbapp=portal&amp;topic=Spielplatzkarte&amp;infoactive=1&amp;maponly=1&amp;onlymap=1&amp;scale=200&amp;x={{ device.geometry.coordinates.0|urlencode }}&amp;y={{ device.geometry.coordinates.1|urlencode }}&amp;back=Hintergrundkarte_LK_AV_Situationsplan" target="_blank" rel="noopener noreferrer">{% tr "Im Stadtplan anzeigen" %}</a></p>{% else %}<p>{% tr "Keine Standortkoordinaten vorhanden." %}</p>{% endif %}
+  </details>
+  <section class="device-card-section device-attributes" aria-labelledby="device-attributes-{{ p.fid }}">
+    <div class="device-section-heading"><h4 id="device-attributes-{{ p.fid }}">{% tr "Geräteattribute" %}</h4></div>
+    <dl class="device-facts">
+      <div><dt>{% tr "Norm (Jahrgang)" %}</dt><dd>{{ p.type.standard|ui_default:'Nicht angegeben' }}</dd></div>
+      <div><dt>{% tr "Lieferant" %}</dt><dd>{{ p.supplier|ui_default:'Nicht angegeben' }}</dd></div>
+      <div><dt>{% tr "Erstellungsjahr" %}</dt><dd>{{ p.construction_year|ui_default:'Nicht angegeben' }}</dd></div>
+    </dl>
+    <div class="device-renovation">
+      <div class="device-section-heading"><h5>{% tr "Sanierung" %}</h5><span class="renovation-stamp is-{{ p.renovation_status }}">{% if p.renovation_status == "unplanned" %}{% tr "Keine Sanierung geplant" %}{% else %}{% tr "Sanierung ausstehend" %}{% endif %}</span></div>
+      <dl class="device-facts">
+        <div><dt>{% tr "Empfohlenes Sanierungsjahr" %}</dt><dd>{{ p.recommendedYearOfRenovation|ui_default:'Nicht angegeben' }}</dd></div>
+        <div><dt>{% tr "Sanierungsart" %}</dt><dd>{{ p.renovation_type_label|ui_default:'Nicht angegeben'|ui }}</dd></div>
+        <div class="device-fact-note"><dt>{% tr "Kommentar zu empf. Sanierungsjahr" %}</dt><dd>{{ p.commentRecommendedYearOfRenovation|ui_default:'Keine Angabe' }}</dd></div>
+      </dl>
+    </div>
+    {% if p.comment %}<p class="device-attribute-note"><strong>{% tr "Bemerkung" %}</strong>{{ p.comment }}</p>{% endif %}
+    {% if p.cannotBeCheckedReason %}<p class="device-attribute-note"><strong>{% tr "Kontrollhindernis" %}</strong>{{ p.cannotBeCheckedReason }}</p>{% endif %}
+    <a class="device-section-action" href="{{ prefix }}/device/edit/?fid={{ p.fid|urlencode }}&amp;name={{ playground.name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">{% include "icon.html" with name="pencil" %}<span>{% tr "Geräteattribute bearbeiten" %}</span></a>
+  </section>
+  <details class="device-card-section device-defect-section" aria-labelledby="device-defects-{{ p.fid }}">
+    <summary class="device-section-heading"><h4 id="device-defects-{{ p.fid }}">{% tr "Offene Mängel" %}</h4><span class="device-defect-count{% if p.defects %} has-defects{% endif %}">{{ p.defects|length }}</span></summary>
+    {% if p.defects %}<ul class="device-defect-list">{% for defect in p.defects %}<li>{% if defect.tid %}<a class="device-defect-link" href="{{ prefix }}/defect/?tid={{ defect.tid|urlencode }}">{{ defect.defectDescription|ui_default:'Mangel' }}</a>{% else %}{{ defect.defectDescription|ui_default:'Mangel' }}{% endif %}</li>{% endfor %}</ul>{% else %}<p class="device-defect-empty">{% tr "Keine offenen Mängel erfasst." %}</p>{% endif %}
+    <a class="device-section-action" href="{{ prefix }}/defect/edit/?playdeviceFid={{ p.fid|urlencode }}">{% include "icon.html" with name="plus" %}<span>{% tr "Mangel erfassen" %}</span></a>
+  </details>
+</article>
+{% endwith %}{% empty %}<p class="empty-state">{% tr "Keine Spielgeräte vorhanden." %}</p>{% endfor %}</div>
+  </div>
+  <div class="playground-tab-panel playground-tab-documents">
+<section id="documents" class="playground-document-board" aria-label="{% tr "Dokumente zum Spielplatz" %}">
+  <div class="document-board-head">
+    <div>
+      <p class="eyebrow">{% tr "Dokumente" %}</p>
+      <h2>{% tr "Abnahmen und Zertifikate" %}</h2>
+      <p class="muted">{% tr "PDF-Dokumente zentral verwalten und direkt beim Spielplatz ablegen." %}</p>
+    </div>
+  </div>
+  {% if flash_notice %}<div class="notice success" role="status">{{ flash_notice|ui }}</div>{% endif %}
+  {% include "ui_error.html" with message=flash_error %}
+  <div class="document-panel-grid">
+    <section class="document-panel">
+      <div class="document-panel-head">
+        <div>
+          <h3>{% tr "Abnahmedokumente" %}</h3>
+          <p class="muted">{% tr "Relevante Abnahmen und Freigaben zum Spielplatz." %}</p>
+        </div>
+        <span class="status">{{ playground.documentsOfAcceptance|length }}</span>
+      </div>
+      {% if playground.documentsOfAcceptance %}
+      <ul class="document-list">
+        {% for doc in playground.documentsOfAcceptance %}
+        <li class="document-item-row">
+          <div class="document-item-main">
+            <a class="document-link" href="{{ prefix }}/Document/{{ doc.fid }}/?type=abnahme">{{ doc.name|ui_default:'Abnahmedokument' }}</a>
+            <span class="muted">{% tr "PDF · ID" %} {{ doc.fid }}</span>
+          </div>
+          {% if is_admin %}
+          <details class="document-item-actions">
+            <summary>{% tr "Verwalten" %}</summary>
+            <div class="document-admin-stack">
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-inline-form">
+
+                <input type="hidden" name="action" value="rename">
+                <input type="hidden" name="documentType" value="abnahme">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <label class="field grow"><span>{% tr "Dokumentname" %}</span><input type="text" name="documentName" value="{{ doc.name }}" maxlength="255" required></label>
+                <button type="submit" class="secondary-button">{% tr "Umbenennen" %}</button>
+              </form>
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-delete-form">
+
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="documentType" value="abnahme">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <button type="submit" class="danger-button">{% tr "Löschen" %}</button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state compact">{% tr "Noch keine Abnahmedokumente vorhanden." %}</p>
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" action="{{ prefix }}/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
+
+        <input type="hidden" name="action" value="upload">
+        <input type="hidden" name="documentType" value="abnahme">
+        <input type="hidden" name="playgroundId" value="{{ playground.id }}">
+        <input type="hidden" name="name" value="{{ playground.name }}">
+        <input type="hidden" name="inspectiontype" value="{{ kind }}">
+        <h4>{% tr "Weiteres Dokument hochladen" %}</h4>
+        <div class="document-upload-grid">
+          <label class="field grow"><span>{% tr "Anzeigename" %}</span><input type="text" name="documentName" maxlength="255" placeholder="{% tr "z. B. Schlussabnahme 2026" %}"></label>
+          <label class="field grow"><span>{% tr "PDF-Datei" %}</span><input type="file" name="document" accept="application/pdf,.pdf" required></label>
+        </div>
+        <button type="submit" class="primary-button">{% tr "Abnahmedokument hochladen" %}</button>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="document-panel">
+      <div class="document-panel-head">
+        <div>
+          <h3>{% tr "Zertifikatsdokumente" %}</h3>
+          <p class="muted">{% tr "Zertifikate, Herstellerfreigaben und Prüfdokumente." %}</p>
+        </div>
+        <span class="status">{{ playground.certificateDocuments|length }}</span>
+      </div>
+      {% if playground.certificateDocuments %}
+      <ul class="document-list">
+        {% for doc in playground.certificateDocuments %}
+        <li class="document-item-row">
+          <div class="document-item-main">
+            <a class="document-link" href="{{ prefix }}/Document/{{ doc.fid }}/?type=zertifikat">{{ doc.name|ui_default:'Zertifikat' }}</a>
+            <span class="muted">{% tr "PDF · ID" %} {{ doc.fid }}</span>
+          </div>
+          {% if is_admin %}
+          <details class="document-item-actions">
+            <summary>{% tr "Verwalten" %}</summary>
+            <div class="document-admin-stack">
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-inline-form">
+
+                <input type="hidden" name="action" value="rename">
+                <input type="hidden" name="documentType" value="zertifikat">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <label class="field grow"><span>{% tr "Dokumentname" %}</span><input type="text" name="documentName" value="{{ doc.name }}" maxlength="255" required></label>
+                <button type="submit" class="secondary-button">{% tr "Umbenennen" %}</button>
+              </form>
+              <form method="post" action="{{ prefix }}/detail/documents/" class="document-delete-form">
+
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="documentType" value="zertifikat">
+                <input type="hidden" name="documentFid" value="{{ doc.fid }}">
+                <input type="hidden" name="name" value="{{ playground.name }}">
+                <input type="hidden" name="inspectiontype" value="{{ kind }}">
+                <button type="submit" class="danger-button">{% tr "Löschen" %}</button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state compact">{% tr "Noch keine Zertifikatsdokumente vorhanden." %}</p>
+      {% endif %}
+      {% if is_admin %}
+      <form method="post" action="{{ prefix }}/detail/documents/" enctype="multipart/form-data" class="document-upload-card">
+
+        <input type="hidden" name="action" value="upload">
+        <input type="hidden" name="documentType" value="zertifikat">
+        <input type="hidden" name="playgroundId" value="{{ playground.id }}">
+        <input type="hidden" name="name" value="{{ playground.name }}">
+        <input type="hidden" name="inspectiontype" value="{{ kind }}">
+        <h4>{% tr "Weiteres Dokument hochladen" %}</h4>
+        <div class="document-upload-grid">
+          <label class="field grow"><span>{% tr "Anzeigename" %}</span><input type="text" name="documentName" maxlength="255" placeholder="{% tr "z. B. Herstellerzertifikat" %}"></label>
+          <label class="field grow"><span>{% tr "PDF-Datei" %}</span><input type="file" name="document" accept="application/pdf,.pdf" required></label>
+        </div>
+        <button type="submit" class="primary-button">{% tr "Zertifikat hochladen" %}</button>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+</section>
+  </div>
+</div>

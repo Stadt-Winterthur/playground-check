@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+data/*.sqlite3
+!data/.gitkeep
+.vscode/
+*.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Environment
+.env
+compose.override.yaml
+
+# Python package metadata
+*.egg-info/
+# Build and browser test outputs
+build/
+dist/
+node_modules/
+test-results/
+playwright-report/

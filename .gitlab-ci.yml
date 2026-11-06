@@ -1,0 +1,91 @@
+stages:
+  - quality
+  - deploy
+
+# Quality runs before merge and before deployment. Test credentials are local
+# to each disposable CI service and must never point at the application DB.
+.quality_rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main" && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web")'
+    - when: never
+
+quality:
+  extends: .quality_rules
+  stage: quality
+  tags: [docker, linux]
+  image: python:3.12-slim
+  services:
+    - name: postgres:16
+      alias: postgres
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    SMTP_FROM: "test-sender@example.org"
+    PLAYGROUND_SECURITY_KEY: "ci-test-key-not-for-deployment-32-characters"
+    POSTGRES_DB: "playground_ci"
+    POSTGRES_USER: "playground_ci"
+    POSTGRES_PASSWORD: "disposable-ci-only"
+    PLAYGROUND_TEST_SESSION_DSN: "postgresql://playground_ci:disposable-ci-only@postgres:5432/playground_ci"
+  cache:
+    key:
+      files: [requirements/ci.txt, requirements/runtime.txt]
+    paths: [.cache/pip/]
+  script:
+    - python --version
+    - python -m pip install -r requirements/ci.txt
+    - python -m pip install --no-build-isolation --no-deps -e '.[django,production]'
+    - python -m pip check
+    - python .gitlab/scripts/wait-for-test-database.py
+    - python -m compileall -q src tests tools .gitlab/scripts
+    - python -m ruff check src tests tools .gitlab/scripts
+    - python -m mypy
+    - python tools/check_api_routes.py
+    - python tools/check_migration_dependencies.py
+    - python -m unittest discover -s tests -v
+
+javascript:
+  extends: .quality_rules
+  stage: quality
+  tags: [docker, linux]
+  image: node:24-bookworm-slim
+  script:
+    - npm --prefix tests/browser run test:unit
+
+
+# --------------------------------------------
+# Deploy: Docker-Image bauen und bereitstellen
+# --------------------------------------------
+
+deploy_test:
+  stage: deploy
+
+  tags:
+    - playground-deploy-linux
+
+  image: docker:cli
+
+  interruptible: false
+  resource_group: spielplatzkontrolle-test
+
+  variables:
+    GIT_STRATEGY: fetch
+    DEPLOY_DIR: "/srv/docker/spielplatzkontrolle"
+    DOCKER_HOST: "unix:///var/run/docker.sock"
+
+  before_script:
+    - docker info > /dev/null
+    - docker compose version
+    - test -f "$DEPLOY_DIR/.env"
+    - test -f "$DEPLOY_DIR/compose.autodeploy.yaml"
+
+  script:
+    - sh .gitlab/scripts/deploy-test.sh
+
+  environment:
+    name: test
+    url: https://stadtplantest.winterthur.ch/stadtgruen/spielplatzkontrolle/
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web")'
+      when: on_success
+    - when: never

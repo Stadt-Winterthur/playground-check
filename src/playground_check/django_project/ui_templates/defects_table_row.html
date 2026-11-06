@@ -1,0 +1,10 @@
+      <tr class="{% if defect.assignment_overdue %}defect-critical{% endif %}">
+        <td class="defect-number"><a class="defect-table-link" href="{{ prefix }}/defect/?tid={{ defect.tid|urlencode }}">{{ defect.tid }}</a></td>
+        <td class="defect-status"><span class="defect-chip">{% if defect.done_by %}{% tr "Erledigt" %}{% else %}{% tr "Offen" %}{% endif %}</span>{% if defect.assignment_overdue %}<span class="defect-chip danger">{% tr "24 h überschritten" %}</span>{% endif %}</td>
+        <td class="defect-place"><strong>{{ defect.playground_name|ui_default:"Spielplatz unbekannt" }}</strong><span class="defect-secondary"><a class="defect-device-link" href="{{ prefix }}/defect/?tid={{ defect.tid|urlencode }}">{{ defect.playdevice_type|ui_default:"Spielgerät" }}</a></span></td>
+        <td class="defect-priority">{% if defect.priority == 1 %}{% tr "A (sofort)" %}{% elif defect.priority == 2 %}{% tr "B (mittelfristig)" %}{% elif defect.priority == 3 %}{% tr "C (im Folgejahr beurteilen)" %}{% else %}–{% endif %}</td>
+        <td class="defect-date">{{ defect.date_creation|date:"d.m.Y"|default:"–" }}</td>
+        <td class="defect-age">{% if defect.open_days is not None %}{{ defect.open_days }} {% tr "Tage" %}{% else %}–{% endif %}</td>
+        <td class="defect-table-person">{% if defect.responsible_body_id == 1 %}{% tr "Revier" %}{% elif defect.responsible_body_id == 2 %}{% tr "Spielplatzverantwortlicher" %}{% elif defect.responsible_body_id == 3 %}{% tr "Projektleiter" %}{% else %}–{% endif %}<span class="defect-secondary">{{ defect.responsible_user_name|default:"–" }}</span></td>
+        <td class="defect-description">{{ defect.description|default:"–" }}</td><td class="defect-comment">{{ defect.comment|default:"–" }}</td>
+      </tr>

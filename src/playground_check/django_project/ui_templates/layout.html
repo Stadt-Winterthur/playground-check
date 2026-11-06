@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="{{ language_code }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#b21e2b"><title>{{ page_title|ui }}</title>
+<link rel="manifest" href="{{ prefix }}/manifest.webmanifest">
+<link rel="stylesheet" href="{{ prefix }}/static/css/python-ui.css">
+{% if home_page %}<link rel="stylesheet" href="{{ prefix }}/static/css/welcome-home.css">{% endif %}
+{% if local_htmx_available %}<script defer src="{{ prefix }}/static/vendor/htmx.min.js"></script>{% endif %}
+{% ui_messages %}
+<script defer src="{{ prefix }}/static/js/i18n.js"></script>
+<script defer src="{{ prefix }}/static/js/form-safety.js"></script>
+{% if service_worker_enabled %}<script defer src="{{ prefix }}/static/js/pwa-register.js" data-worker-url="{{ prefix }}/static/sw.js" data-worker-scope="{{ prefix }}/"></script>{% endif %}
+</head><body data-user-fid="{{ user.fid }}" class="{% if private %}authenticated{% else %}anonymous{% endif %}">
+<a class="skip-link" href="#content">{% tr "Zum Inhalt springen" %}</a>
+<header class="app-header"><div class="brand"><a href="{{ prefix }}/" aria-label="{% tr "Spielplatzkontrolle – Startseite" %}"><span class="brand-mark" aria-hidden="true">{% tr "W" %}</span><span><strong>{% tr "Spielplatzkontrolle" %}</strong><small>{% tr "Stadt Winterthur" %}</small></span></a></div>
+{% if private %}<div class="header-account-actions">
+<details class="user-menu"><summary aria-label="{% tr "Benutzermenü" %}" title="{% tr "Konto" %}">{% include "icon.html" with name="circle-user-round" icon_class="account-icon" %}<span class="account-label">{% tr "Konto" %}</span></summary><div class="menu-popover"><a href="{{ prefix }}/profile/">{% include "icon.html" with name="user-round" %}<span>{% tr "Mein Konto" %}</span></a><a href="{{ prefix }}/push/">{% include "icon.html" with name="bell" %}<span>{% tr "Benachrichtigungen" %}</span></a>
+<form class="menu-logout" method="post" action="{{ prefix }}/session/end/" data-logout><button type="submit" class="secondary-button">{% include "icon.html" with name="log-out" %}<span>{% tr "Abmelden" %}</span></button></form><div class="menu-legal-links">{% include "legal_links.html" %}</div></div></details>
+</div>{% else %}<div class="header-account-actions">
+<a class="header-login" href="{{ prefix }}/login/">{% tr "Anmelden" %}</a>
+<details class="user-menu information-menu"><summary aria-label="{% tr "Informationen" %}" title="{% tr "Informationen" %}"><svg class="ui-icon account-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7h.01"></path></svg><span class="account-label">{% tr "Informationen" %}</span></summary><div class="menu-popover">{% include "legal_links.html" %}</div></details>
+</div>{% endif %}
+</header>
+<div class="app-frame">
+{% if private %}<aside class="side-navigation" aria-label="{% tr "Fachnavigation" %}"><nav>
+<a href="{{ prefix }}/" {% if active_nav == 'home' %}aria-current="page"{% endif %}>{% include "icon.html" with name="house" %} {% tr "Willkommen" %}</a>
+<a href="{{ prefix }}/assigned/" {% if active_nav == 'devices' %}aria-current="page"{% endif %}>{% include "icon.html" with name="blocks" %} {% tr "Spielgeräte" %}</a>
+<a href="{{ prefix }}/assigned/?mode=inspection" {% if active_nav == 'inspections' %}aria-current="page"{% endif %}>{% include "icon.html" with name="clipboard-check" %} {% tr "Inspektion" %}</a>
+<a href="{{ prefix }}/defects/" {% if active_nav == 'defects' %}aria-current="page"{% endif %}>{% include "icon.html" with name="triangle-alert" %} {% tr "Mängel" %}</a>
+{% if role == 'administrator' %}<a href="{{ prefix }}/admin/users/" {% if active_nav == 'users' %}aria-current="page"{% endif %}>{% include "icon.html" with name="users" %} {% tr "Benutzer" %}</a>{% endif %}
+</nav></aside>{% endif %}
+<main id="content" class="app-content{% if home_page %} welcome-page{% endif %}{% if legal_page %} legal-page{% endif %}">{{ body|safe }}</main>
+</div>
+{% if private %}<nav class="bottom-navigation" aria-label="{% tr "Mobile Hauptnavigation" %}">
+<a href="{{ prefix }}/" {% if active_nav == 'home' %}aria-current="page"{% endif %}>{% include "icon.html" with name="house" %}<span>{% tr "Start" %}</span></a>
+<a href="{{ prefix }}/assigned/" {% if active_nav == 'devices' %}aria-current="page"{% endif %}>{% include "icon.html" with name="blocks" %}<span>{% tr "Geräte" %}</span></a>
+<a href="{{ prefix }}/assigned/?mode=inspection" {% if active_nav == 'inspections' %}aria-current="page"{% endif %}>{% include "icon.html" with name="clipboard-check" %}<span>{% tr "Inspektion" %}</span></a>
+<a href="{{ prefix }}/defects/" {% if active_nav == 'defects' %}aria-current="page"{% endif %}>{% include "icon.html" with name="triangle-alert" %}<span>{% tr "Mängel" %}</span></a>
+</nav>{% endif %}
+</body></html>

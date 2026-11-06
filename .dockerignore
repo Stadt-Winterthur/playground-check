@@ -1,0 +1,13 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.py[cod]
+.env
+.env.*
+!.env.production.example
+data/
+tests
+start.cmd
+*.patch
+*.zip

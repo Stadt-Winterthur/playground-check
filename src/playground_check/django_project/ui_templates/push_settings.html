@@ -1,0 +1,14 @@
+<h1>{% tr "Push-Benachrichtigungen" %}</h1>
+<p>{% tr "Benachrichtigungen lassen sich für diesen Browser aktivieren oder deaktivieren. Ihre Anmeldung bleibt für beide Aktionen erforderlich." %}</p>
+{% if push_enabled %}
+<p class="privacy-hint">{% tr "Bei Aktivierung wird der Push-Dienst Ihres Browseranbieters eingebunden. Die Anwendung speichert das Abonnement mit Ihrem Konto. Meldungen können auf dem Sperrbildschirm erscheinen. Abmelden allein deaktiviert Push nicht." %}
+  <a href="{{ prefix }}/privacy/#push">{% tr "Datenverwendung und Deaktivierung" %}</a></p>
+<section id="push-controls" data-base-path="{{ prefix }}" data-vapid-key="{{ vapid_public_key }}">
+  <p id="push-status" role="status" aria-live="polite">{% tr "Status wird geprüft …" %}</p>
+  <button type="button" id="push-enable" disabled>{% tr "Benachrichtigungen aktivieren" %}</button>
+  <button type="button" id="push-disable" disabled>{% tr "Benachrichtigungen deaktivieren" %}</button>
+</section>
+<script src="{{ prefix }}/static/js/python-ui-push.js" defer></script>
+{% else %}
+<p>{% tr "Push ist auf diesem Server nicht konfiguriert." %}</p>
+{% endif %}
