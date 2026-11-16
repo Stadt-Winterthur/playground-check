@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "playground-check-python"
-version = "2026.11"
+version = "2026.11.2"
 description = "Python reimplementation of the City of Winterthur playground inspection web application"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -12,6 +12,8 @@ class InspectionFormError(ValueError):
 def inspection_devices(payload, kind, device_label='Spielgerät'):
     devices = []
     options = payload.get("inspectionTypeOptions") or []
+    renovation_labels = {str(option.get("id")): option.get("value") or ""
+                         for option in payload.get("renovationTypeOptions") or []}
     for item in payload.get("playdevices") or []:
         try:
             fid = int((item.get("properties") or {}).get("fid") or item.get("fid") or 0)
@@ -39,6 +41,10 @@ def inspection_devices(payload, kind, device_label='Spielgerät'):
                             "type_name": (props.get("type") or {}).get("name") or "",
                             "standard": (props.get("type") or {}).get("standard") or "",
                             "supplier": props.get("supplier") or "",
+                            "defects": props.get("defects") or [],
+                            "renovation_year": props.get("recommendedYearOfRenovation") or None,
+                            "renovation_type": renovation_labels.get(str(props.get("renovationType"))) or "",
+                            "renovation_comment": props.get("commentRecommendedYearOfRenovation") or "",
                             "coordinates": (item.get("geometry") or {}).get("coordinates") or [],
                             "history_last": props.get("lastInspectionReports") or [],
                             "history_previous": props.get("nextToLastInspectionReports") or [],

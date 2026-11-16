@@ -25,3 +25,16 @@
 
 .inspection-history-filter{display:grid;gap:.5rem;max-width:40rem;padding:1rem;border:1px solid #dce4ec;border-radius:8px;margin:1rem 0}.inspection-history-filter select{width:100%;min-width:0}.inspection-history-columns{display:grid;grid-template-columns:minmax(0,1fr);gap:1.5rem}.inspection-history-columns section{min-width:0}.inspection-history-columns h4{font-size:1.15rem}.inspection-history-columns p{white-space:normal;overflow-wrap:anywhere}.inspection-history-columns input:disabled{opacity:1;accent-color:#395d40}[data-history-type][hidden]{display:none!important}
 @media(min-width:1000px){.inspection-history-columns{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Existing defects and renovation planning are visible within every inspection. */
+.inspection-choice-alerts{display:flex;flex-wrap:wrap;gap:.4rem;padding:0 .85rem .55rem}
+.inspection-choice-alerts span{font-size:.82rem;font-weight:650;border-radius:1rem;padding:.25rem .55rem;background:#fff0e9;color:#74351e}
+.inspection-choice-alerts .inspection-renovation-count{background:#eef4fb;color:#234a72}
+.inspection-context{display:grid;gap:1rem;margin:1rem 0}
+.inspection-context-block{border:1px solid #dce4ec;border-radius:10px;padding:1rem;min-width:0;overflow-wrap:anywhere}
+.inspection-context-block h3{margin:0 0 .65rem;font-size:1.08rem}
+.inspection-context-block p{margin:.4rem 0}.inspection-context-list{padding-left:1.4rem;margin:.5rem 0}
+.inspection-context-list li+li{margin-top:.65rem}.inspection-context-facts{margin:.5rem 0}
+.inspection-context-facts div{margin:.4rem 0}.inspection-context-facts dt{font-weight:650}
+.inspection-context-facts dd{margin:.12rem 0 0}
+@media(min-width:760px){.inspection-context{grid-template-columns:repeat(2,minmax(0,1fr))}}

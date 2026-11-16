@@ -17,6 +17,12 @@
         <span class="inspection-choice-photo"><img data-fallback-src="{{ prefix }}/static/assets/no-device-photo.svg" src="{{ prefix }}/Playdevice/{{ device.fid }}/Picture/" alt="" loading="lazy"></span>
         <span class="inspection-choice-name"><strong>{{ device.name }}</strong><small>{{ device.type_name }}</small><span class="inspection-open-label">{% if device.not_to_be_checked %}{% tr "Nicht zu prüfen" %}{% else %}{% tr "Prüfpunkte öffnen" %}{% endif %}</span></span>
       </button>
+      {% if device.defects or device.renovation_year or device.renovation_type or device.renovation_comment %}
+      <div class="inspection-choice-alerts">
+        {% if device.defects %}<span class="inspection-alert-count">{{ device.defects|length }} {% tr "offene Mängel" %}</span>{% endif %}
+        {% if device.renovation_year or device.renovation_type or device.renovation_comment %}<span class="inspection-renovation-count">{% tr "Sanierung hinterlegt" %}</span>{% endif %}
+      </div>
+      {% endif %}
       {% if device.checks and not device.not_to_be_checked and not device.cannot_be_checked %}
       <button type="button" class="inspection-device-chip inspection-chip-toggle" data-inspection-chip="{{ device.fid }}" aria-label="{% tr "Alle Prüf- und Wartungsschritte für" %} {{ device.name }} {% tr "als erledigt markieren" %}">{% tr "pendent" %}</button>
       {% else %}<span class="inspection-device-chip">{% if device.not_to_be_checked or device.cannot_be_checked %}{% tr "inaktiv" %}{% else %}{% tr "keine Kontrollen" %}{% endif %}</span>{% endif %}
@@ -42,6 +48,26 @@
 </fieldset>
 {% endif %}
 <div class="inspection-device-meta"><p><strong>{% tr "Norm:" %}</strong> {{ device.standard|ui_default:'Nicht angegeben' }}</p><p><strong>{% tr "Lieferant:" %}</strong> {{ device.supplier|ui_default:'Unbekannt' }}</p></div>
+<section class="inspection-context" aria-label="{% tr 'Mängel und Sanierung' %}">
+  <div class="inspection-context-block">
+    <h3>{% tr "Offene Mängel" %} ({{ device.defects|length }})</h3>
+    {% if device.defects %}<ul class="inspection-context-list">{% for defect in device.defects %}
+      <li><a href="{{ prefix }}/defect/?tid={{ defect.tid|urlencode }}">{{ defect.defectDescription|ui_default:'Mangel' }}</a>{% if defect.defectComment %}<p>{{ defect.defectComment }}</p>{% endif %}</li>
+    {% endfor %}</ul>{% else %}<p class="muted">{% tr "Keine offenen Mängel erfasst." %}</p>{% endif %}
+    <a href="{{ prefix }}/defect/edit/?playdeviceFid={{ device.fid|urlencode }}">{% tr "Mangel erfassen" %}</a>
+  </div>
+  <div class="inspection-context-block">
+    <h3>{% tr "Sanierungsmassnahmen" %}</h3>
+    {% if device.renovation_year or device.renovation_type or device.renovation_comment %}
+      <dl class="inspection-context-facts">
+      {% if device.renovation_type %}<div><dt>{% tr "Sanierungsart" %}</dt><dd>{{ device.renovation_type }}</dd></div>{% endif %}
+      {% if device.renovation_year %}<div><dt>{% tr "Empfohlenes Sanierungsjahr" %}</dt><dd>{{ device.renovation_year }}</dd></div>{% endif %}
+      {% if device.renovation_comment %}<div><dt>{% tr "Bemerkung" %}</dt><dd>{{ device.renovation_comment }}</dd></div>{% endif %}
+      </dl>
+    {% else %}<p class="muted">{% tr "Keine Sanierungsmassnahmen hinterlegt." %}</p>{% endif %}
+    <a href="{{ prefix }}/device/edit/?fid={{ device.fid|urlencode }}&amp;name={{ name|urlencode }}&amp;inspectiontype={{ kind|urlencode }}">{% tr "Sanierungsangaben bearbeiten" %}</a>
+  </div>
+</section>
 {% if device.not_to_be_checked %}<p class="notice warning">{% tr "Dieses Spielgerät ist von der Kontrolle ausgenommen." %}</p>
 {% elif device.cannot_be_checked %}<p class="notice warning">{% tr "Dieses Spielgerät ist als nicht prüfbar markiert." %} {% if device.cannot_reason %}{% tr "Grund:" %} {{ device.cannot_reason }}{% else %}{% tr "Eine Begründung ist noch erforderlich." %}{% endif %}</p>
 {% elif not device.checks %}<p class="muted">{% tr "Keine Inspektionskriterien hinterlegt." %}</p>{% endif %}

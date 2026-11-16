@@ -43,6 +43,18 @@ class InspectionFormModelTests(unittest.TestCase):
         self.assertTrue(all(report['inspectionComment'] == 'Geprüft' for report in reports))
         self.assertEqual(self.payload, snapshot)
 
+    def test_inspection_context_contains_defects_and_renovation(self):
+        props = self.payload['playdevices'][0]['properties']
+        props.update(defects=[{'tid': 987, 'defectDescription': 'Lose Schraube'}],
+                     recommendedYearOfRenovation=2027, renovationType=4,
+                     commentRecommendedYearOfRenovation='Austausch planen')
+        self.payload['renovationTypeOptions'] = [{'id': 4, 'value': 'Ersatz'}]
+        device = inspection_devices(self.payload, KIND)[0]
+        self.assertEqual(device['defects'][0]['tid'], 987)
+        self.assertEqual(device['renovation_year'], 2027)
+        self.assertEqual(device['renovation_type'], 'Ersatz')
+        self.assertEqual(device['renovation_comment'], 'Austausch planen')
+
     def test_navigation_binding_retains_draft_without_marking_incomplete_checks_done(self):
         devices = inspection_devices(self.payload, KIND)
         bind_inspection_values(devices, {'comment_42_0': 'Behalten', 'inspection_done_42_0': 'on'})

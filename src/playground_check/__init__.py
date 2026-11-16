@@ -1,4 +1,4 @@
 """Spielplatzkontrolle Python monorepo."""
 
-__version__ = "2026.11"
+__version__ = "2026.11.2"
 
