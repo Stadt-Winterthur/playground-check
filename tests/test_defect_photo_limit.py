@@ -24,12 +24,19 @@ class DefectPhotoLimitTests(unittest.TestCase):
             self.assertEqual(save_defect_picture(db, 77, 'raw', 'small', False), {'tid': 11})
             self.assertIn('LOCK TABLE', db.calls[0][0])
             self.assertIn('INSERT INTO', db.calls[-1][0])
+            self.assertEqual(db.calls[-2][1], (77, False))
 
     def test_fourth_upload_rejected_before_write(self):
         db = DB(3)
         with self.assertRaises(DefectPhotoLimitError):
             save_defect_picture(db, 77, 'raw', 'small', True)
         self.assertFalse(any('INSERT INTO' in sql or 'UPDATE' in sql for sql, _ in db.calls))
+        self.assertEqual(db.calls[-1][1], (77, True))
+
+    def test_three_before_do_not_block_first_after_photo(self):
+        db = DB(0)
+        self.assertEqual(save_defect_picture(db, 77, 'raw', 'small', True), {'tid': 11})
+        self.assertEqual(db.calls[-2][1], (77, True))
 
     def test_existing_photo_can_be_replaced_at_limit_without_changing_identity(self):
         db = DB(3)
@@ -44,3 +51,23 @@ class DefectPhotoLimitTests(unittest.TestCase):
         self.assertFalse(any('UPDATE' in sql for sql, _ in db.calls))
 
 if __name__ == '__main__': unittest.main()
+
+class DefectPhotoDeleteTests(unittest.TestCase):
+    def test_delete_is_scoped_to_defect_photo_and_category(self):
+        from playground_check.picture_write_repository import delete_defect_picture
+        db = DB()
+        self.assertTrue(delete_defect_picture(db, 77, 11, True))
+        self.assertIn('LOCK TABLE', db.calls[0][0])
+        query, params = db.calls[-1]
+        self.assertIn('DELETE FROM', query)
+        self.assertIn('tid_maengel=%s', query)
+        self.assertIn('zeitpunkt=%s', query)
+        self.assertEqual(params, (11, 77, True))
+
+    def test_missing_photo_returns_false(self):
+        from playground_check.picture_write_repository import delete_defect_picture
+        class MissingDB(DB):
+            def execute(self, sql, params=None):
+                self.calls.append((sql, params))
+                return Cursor(None)
+        self.assertFalse(delete_defect_picture(MissingDB(), 77, 11, False))

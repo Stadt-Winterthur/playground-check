@@ -24,12 +24,14 @@ def defect_overview(request):
     return defect_native.get_defect_overview(request)
 
 
-@api_view(["GET", "PUT"])
+@api_view(["GET", "PUT", "DELETE"])
 @authentication_classes([])
 @permission_classes([])
 def defect_picture(request, tid: int):
     if request.method == "GET":
         return defect_commands.get_defect_picture(request, tid)
+    if request.method == "DELETE":
+        return defect_commands.delete_defect_picture(request, tid)
     return defect_commands.put_defect_picture(request, tid)
 
 

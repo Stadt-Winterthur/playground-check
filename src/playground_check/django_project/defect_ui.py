@@ -86,6 +86,8 @@ class DefectEditor:
                           url=f'/Defect/{self.tid}/send-mail/', kwargs={'tid': self.tid})
         if action in {'photo_before', 'photo_after', 'replace_before', 'replace_after'}:
             return self._photo(action)
+        if action in {'delete_before', 'delete_after'}:
+            return self._delete_photo(action)
         raise DefectFormError('Ungültige Aktion.')
 
     def _assign(self, action):
@@ -131,10 +133,22 @@ class DefectEditor:
                              payload, {'picture': upload},
                              method='PUT', url=f'/Defect/Picture/{self.tid}/', kwargs={'tid': self.tid})
 
+    def _delete_photo(self, action):
+        try:
+            photo_tid = int(self.request.POST.get('photo_tid') or '')
+        except (TypeError, ValueError) as exc:
+            raise DefectFormError('Ungültige Foto-ID.') from exc
+        if not 0 < photo_tid < 2**31:
+            raise DefectFormError('Ungültige Foto-ID.')
+        return invoke(self.request, defect_commands.delete_defect_picture,
+                      {'photoTid': photo_tid, 'afterFixing': action == 'delete_after'},
+                      method='DELETE', url=f'/Defect/Picture/{self.tid}/',
+                      kwargs={'tid': self.tid})
+
     def _action_result(self, response, action):
         if response.status_code == 409:
             if action in {'photo_before', 'photo_after', 'replace_before', 'replace_after'}:
-                return self._failure('Foto konnte nicht gespeichert werden. Maximal drei Fotos pro Mangel; bitte vorhandenes Foto ersetzen.', 409)
+                return self._failure('Foto konnte nicht gespeichert werden. Maximal drei Fotos in diesem Bereich; bitte vorhandenes Foto ersetzen.', 409)
             return self._failure('Der Mangel wurde zwischenzeitlich geändert. Bitte die Angaben vor dem erneuten Speichern abgleichen.', 409)
         if response.status_code != 200:
             return self._failure('Aktion konnte nicht ausgeführt werden. Berechtigung und Angaben prüfen.', 409)
@@ -156,7 +170,7 @@ class DefectEditor:
             return self.render('error.html', {'message': 'Mangel nicht gefunden.', 'private': True, 'user': self.user}, status=404)
         context = defect_edit_context(data, users, form_values)
         edited = context['defect']
-        context.update(photo_count=len(edited.get('defectPicsTids') or []) + len(edited.get('defectPicsAfterFixingTids') or []), tid=self.tid, form_error=form_error, record_version=row.get('record_version') or '',
+        context.update(photo_count_before=len(edited.get('defectPicsTids') or []), photo_count_after=len(edited.get('defectPicsAfterFixingTids') or []), tid=self.tid, form_error=form_error, record_version=row.get('record_version') or '',
                        can_respond=(edited['responsibleUserFid'] == self.user.get('fid') and edited['assignmentStatus'] != 'angenommen'), private=True, user=self.user,
-                       saved_action=self.request.GET.get('saved') in {'save', 'mail', 'accept', 'reject', 'photo_before', 'photo_after', 'replace_before', 'replace_after'})
+                       saved_action=self.request.GET.get('saved') in {'save', 'mail', 'accept', 'reject', 'photo_before', 'photo_after', 'replace_before', 'replace_after', 'delete_before', 'delete_after'})
         return self.render('defect_detail.html', context, status=status)

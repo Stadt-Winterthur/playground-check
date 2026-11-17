@@ -540,7 +540,10 @@
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "L’action n’a pas été terminée. Veuillez réessayer plus tard ou contacter l’assistance.",
     "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Vérifiez vos données et réessayez. Les modifications non enregistrées doivent être confirmées à nouveau.",
     "Ersetzen": "Remplacer",
-    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Maximum 3 photos par défaut (avant et après résolution réunies)."
+    "Maximal 3 Fotos je Bereich (vor und nach Mangelbeseitigung).": "Maximum 3 photos par catégorie (avant et après réparation).",
+    "Foto löschen": "Supprimer la photo",
+    "Dieses Foto wirklich löschen?": "Supprimer vraiment cette photo ?",
+    "Foto hinzufügen": "Ajouter une photo"
   },
   "it": {
     "Allgemeine Inspektionskriterien": "Criteri generali di ispezione",
@@ -1083,7 +1086,10 @@
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "L’operazione non è stata completata. Riprovare più tardi o contattare l’assistenza.",
     "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Controllare i dati e riprovare. Le modifiche non salvate devono essere confermate nuovamente.",
     "Ersetzen": "Sostituire",
-    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Massimo 3 foto per difetto (prima e dopo la risoluzione in totale)."
+    "Maximal 3 Fotos je Bereich (vor und nach Mangelbeseitigung).": "Massimo 3 foto per categoria (prima e dopo la riparazione).",
+    "Foto löschen": "Elimina foto",
+    "Dieses Foto wirklich löschen?": "Eliminare davvero questa foto?",
+    "Foto hinzufügen": "Aggiungi foto"
   },
   "rm": {
     "Allgemeine Inspektionskriterien": "Criteris generals d’inspecziun",
@@ -1626,7 +1632,10 @@
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "L’acziun n’è betg vegnida terminada. Empruvai pli tard anc ina giada u contactai il support.",
     "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Controllai vossas indicaziuns ed empruvai anc ina giada. Midadas betg memorisadas ston vegnir confermadas danovamain.",
     "Ersetzen": "Remplazzar",
-    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Maximalmain 3 fotografias per defect (avant e suenter la reparaziun ensemen)."
+    "Maximal 3 Fotos je Bereich (vor und nach Mangelbeseitigung).": "Maximalmain 3 fotografias per categoria (avant e suenter la reparaziun).",
+    "Foto löschen": "Stizzar fotografia",
+    "Dieses Foto wirklich löschen?": "Vulais Vus propi stizzar questa fotografia?",
+    "Foto hinzufügen": "Agiuntar fotografia"
   },
   "en": {
     "Allgemeine Inspektionskriterien": "General inspection criteria",
@@ -2169,7 +2178,10 @@
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "The action was not completed. Please try again later or contact support.",
     "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Please check your entries and try again. Unsaved changes must be confirmed again.",
     "Ersetzen": "Replace",
-    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Maximum 3 photos per defect (before and after resolution combined)."
+    "Maximal 3 Fotos je Bereich (vor und nach Mangelbeseitigung).": "Maximum 3 photos per category (before and after repair).",
+    "Foto löschen": "Delete photo",
+    "Dieses Foto wirklich löschen?": "Really delete this photo?",
+    "Foto hinzufügen": "Add photo"
   },
   "js_keys": [
     "Aktivierung fehlgeschlagen.",

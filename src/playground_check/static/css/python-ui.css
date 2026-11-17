@@ -137,3 +137,16 @@ img.device-map-image{min-width:0}
 .app-form-error{border:1px solid #cc6868;border-left:5px solid #a11b1b;border-radius:10px;padding:1rem;margin:1rem 0;overflow-wrap:anywhere}
 .app-form-error strong{display:block;font-size:1.05rem}.app-form-error p{margin:.5rem 0 0}.app-form-error .app-error-guidance{font-size:.94rem}
 .app-form-error:focus{outline:2px solid #a11b1b;outline-offset:3px}
+
+/* Photo thumbnails keep their existing layout; only the edit controls change. */
+.defect-photo-actions{display:flex;gap:.3rem;justify-content:center;margin-top:.35rem}
+.defect-section .defect-photo-actions form{display:block;margin:0}
+.defect-photo-icon{display:inline-flex!important;align-items:center;justify-content:center;width:40px;height:40px;min-height:40px;margin:0!important;border:1px solid var(--line);border-radius:9px;background:#fff;color:#173b61;font-size:1.45rem;cursor:pointer;position:relative;overflow:hidden;padding:0}
+.defect-photo-icon:hover,.defect-photo-icon:focus-within{background:#eaf1fa;border-color:#5179a8}
+.defect-photo-delete{color:#9e2530;font-size:1.3rem}
+.defect-photo-delete:hover{background:#fff0f0;border-color:#c14854}
+.defect-photo-file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0!important}
+.defect-photo-submit{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;overflow:hidden!important;clip-path:inset(50%);white-space:nowrap;border:0!important}
+.defect-photo-add-label{display:inline-flex!important;position:relative;overflow:hidden;align-items:center;gap:.35rem;border:1px solid var(--line);border-radius:9px;padding:.55rem .85rem;background:#fff;cursor:pointer;width:max-content;max-width:100%;min-height:44px;font-weight:600}
+.defect-photo-add-label:hover,.defect-photo-add-label:focus-within{background:#eaf1fa;border-color:#5179a8}
+.defect-photo-add-label:has(input:disabled){opacity:.5;cursor:not-allowed}

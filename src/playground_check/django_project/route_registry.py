@@ -25,7 +25,7 @@ ROUTES = (
     (r"/Collections/Playgrounds/Items/(?P<uuid>[^/]+)", "GET", "/Collections/Playgrounds/Items/{uuid}/"),
     (r"/Defect", "GET POST PUT", "/Defect/"),
     (r"/Defect/Overview", "GET", "/Defect/Overview/"),
-    (r"/Defect/Picture/(?P<tid>\d+)", "GET PUT", "/Defect/Picture/{tid}/"),
+    (r"/Defect/Picture/(?P<tid>\d+)", "GET PUT DELETE", "/Defect/Picture/{tid}/"),
     (r"/Defect/(?P<tid>\d+)/send-mail", "POST", "/Defect/{tid}/send-mail/"),
     (r"/Defect/(?P<tid>\d+)/accept", "POST", "/Defect/{tid}/accept/"),
     (r"/Defect/(?P<tid>\d+)/reject", "POST", "/Defect/{tid}/reject/"),

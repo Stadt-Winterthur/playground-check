@@ -173,6 +173,24 @@ def put_defect_picture(request, tid: int):
     return _respond(Response.json({"tid": row["tid"]}) if row else Response(b"", 400))
 
 
+@operation_errors()
+def delete_defect_picture(request, tid: int):
+    legacy, _, denied = _authorized(request, tid=tid)
+    if denied is not None:
+        return denied
+    body = object_body(legacy, integers=('photoTid',), booleans=('afterFixing',))
+    photo_tid = body.get('photoTid')
+    if not isinstance(photo_tid, int) or isinstance(photo_tid, bool) or not 0 < photo_tid < 2**31:
+        return _respond(Response.text('Ungültige Foto-ID.', 400))
+    if not isinstance(body.get('afterFixing'), bool):
+        return _respond(Response.text('Ungültige Foto-Kategorie.', 400))
+    with service.connect() as db:
+        removed = service.picture_write_repository.delete_defect_picture(
+            db, tid, photo_tid, body['afterFixing'],
+        )
+    return _respond(Response.json({'deleted': True}) if removed else Response.text('Foto nicht gefunden.', 404))
+
+
 @operation_errors(lambda: _respond(Response.text("Infomail konnte nicht abgeschlossen werden. Bitte Versandstatus prüfen.")))
 def send_info_mail(request, tid: int):
     _, user, denied = _authorized(request, tid=tid)
