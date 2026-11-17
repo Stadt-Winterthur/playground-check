@@ -538,7 +538,9 @@
     "Bitte prüfen Sie das Format Ihrer Eingabe.": "Veuillez vérifier le format de votre saisie.",
     "Aktion nicht abgeschlossen": "Action non terminée",
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "L’action n’a pas été terminée. Veuillez réessayer plus tard ou contacter l’assistance.",
-    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Vérifiez vos données et réessayez. Les modifications non enregistrées doivent être confirmées à nouveau."
+    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Vérifiez vos données et réessayez. Les modifications non enregistrées doivent être confirmées à nouveau.",
+    "Ersetzen": "Remplacer",
+    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Maximum 3 photos par défaut (avant et après résolution réunies)."
   },
   "it": {
     "Allgemeine Inspektionskriterien": "Criteri generali di ispezione",
@@ -721,7 +723,7 @@
     "Filtern": "Filtra",
     "Formular ist zu gross oder ungültig.": "Modulo troppo grande o non valido.",
     "Formular ist zu gross.": "Modulo troppo grande.",
-    "Foto ersetzen": "Sostituisci foto",
+    "Foto ersetzen": "Sostituire la foto",
     "Foto ersetzen / aufnehmen": "Sostituisci / scatta foto",
     "Foto hinzufügen (JPEG/PNG, max. 10 MiB)": "Aggiungi foto (JPEG/PNG, max. 10 MiB)",
     "Foto hochladen": "Carica foto",
@@ -1079,7 +1081,9 @@
     "Bitte prüfen Sie das Format Ihrer Eingabe.": "Verifichi il formato del Suo inserimento.",
     "Aktion nicht abgeschlossen": "Operazione non completata",
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "L’operazione non è stata completata. Riprovare più tardi o contattare l’assistenza.",
-    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Controllare i dati e riprovare. Le modifiche non salvate devono essere confermate nuovamente."
+    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Controllare i dati e riprovare. Le modifiche non salvate devono essere confermate nuovamente.",
+    "Ersetzen": "Sostituire",
+    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Massimo 3 foto per difetto (prima e dopo la risoluzione in totale)."
   },
   "rm": {
     "Allgemeine Inspektionskriterien": "Criteris generals d’inspecziun",
@@ -1620,7 +1624,9 @@
     "Bitte prüfen Sie das Format Ihrer Eingabe.": "Controllai il format da Vossa endataziun.",
     "Aktion nicht abgeschlossen": "Acziun betg terminada",
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "L’acziun n’è betg vegnida terminada. Empruvai pli tard anc ina giada u contactai il support.",
-    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Controllai vossas indicaziuns ed empruvai anc ina giada. Midadas betg memorisadas ston vegnir confermadas danovamain."
+    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Controllai vossas indicaziuns ed empruvai anc ina giada. Midadas betg memorisadas ston vegnir confermadas danovamain.",
+    "Ersetzen": "Remplazzar",
+    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Maximalmain 3 fotografias per defect (avant e suenter la reparaziun ensemen)."
   },
   "en": {
     "Allgemeine Inspektionskriterien": "General inspection criteria",
@@ -2161,7 +2167,9 @@
     "Bitte prüfen Sie das Format Ihrer Eingabe.": "Please check the format of your entry.",
     "Aktion nicht abgeschlossen": "Action not completed",
     "Die Aktion wurde nicht abgeschlossen. Bitte versuchen Sie es später erneut oder wenden Sie sich an den Support.": "The action was not completed. Please try again later or contact support.",
-    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Please check your entries and try again. Unsaved changes must be confirmed again."
+    "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut. Nicht gespeicherte Änderungen müssen erneut bestätigt werden.": "Please check your entries and try again. Unsaved changes must be confirmed again.",
+    "Ersetzen": "Replace",
+    "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen).": "Maximum 3 photos per defect (before and after resolution combined)."
   },
   "js_keys": [
     "Aktivierung fehlgeschlagen.",

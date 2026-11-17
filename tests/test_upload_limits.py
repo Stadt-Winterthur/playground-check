@@ -39,7 +39,7 @@ class UploadTests(unittest.TestCase):
         self.stack.enter_context(patch.object(domain_support, 'connect', return_value=db))
         self.doc = self.stack.enter_context(patch.object(domain_support.document_write_repository, 'insert_document', return_value=99))
         self.image = self.stack.enter_context(patch.object(domain_support.picture_write_repository, 'update_playdevice_picture'))
-        self.defect = self.stack.enter_context(patch.object(domain_support.picture_write_repository, 'insert_defect_picture', return_value={'tid': 123}))
+        self.defect = self.stack.enter_context(patch.object(domain_support.picture_write_repository, 'save_defect_picture', return_value={'tid': 123}))
         self.client = Client(raise_request_exception=False)
 
     def post_pdf(self, content):

@@ -84,7 +84,7 @@ class DefectEditor:
         if action == 'mail':
             return invoke(self.request, defect_commands.send_info_mail, {},
                           url=f'/Defect/{self.tid}/send-mail/', kwargs={'tid': self.tid})
-        if action in {'photo_before', 'photo_after'}:
+        if action in {'photo_before', 'photo_after', 'replace_before', 'replace_after'}:
             return self._photo(action)
         raise DefectFormError('Ungültige Aktion.')
 
@@ -117,12 +117,24 @@ class DefectEditor:
         upload.seek(0)
         if not signature.startswith((b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff')):
             raise DefectFormError('Nur JPEG- und PNG-Bilder sind erlaubt.')
+        replacement = action.startswith('replace_')
+        payload = {'afterFixing': action in {'photo_after', 'replace_after'}}
+        if replacement:
+            try:
+                photo_tid = int(self.request.POST.get('replace_tid') or '')
+            except (TypeError, ValueError) as exc:
+                raise DefectFormError('Ungültige Foto-ID.') from exc
+            if not 0 < photo_tid < 2**31:
+                raise DefectFormError('Ungültige Foto-ID.')
+            payload['replaceTid'] = photo_tid
         return invoke_upload(self.request, defect_commands.put_defect_picture,
-                             {'afterFixing': action == 'photo_after'}, {'picture': upload},
+                             payload, {'picture': upload},
                              method='PUT', url=f'/Defect/Picture/{self.tid}/', kwargs={'tid': self.tid})
 
     def _action_result(self, response, action):
         if response.status_code == 409:
+            if action in {'photo_before', 'photo_after', 'replace_before', 'replace_after'}:
+                return self._failure('Foto konnte nicht gespeichert werden. Maximal drei Fotos pro Mangel; bitte vorhandenes Foto ersetzen.', 409)
             return self._failure('Der Mangel wurde zwischenzeitlich geändert. Bitte die Angaben vor dem erneuten Speichern abgleichen.', 409)
         if response.status_code != 200:
             return self._failure('Aktion konnte nicht ausgeführt werden. Berechtigung und Angaben prüfen.', 409)
@@ -144,7 +156,7 @@ class DefectEditor:
             return self.render('error.html', {'message': 'Mangel nicht gefunden.', 'private': True, 'user': self.user}, status=404)
         context = defect_edit_context(data, users, form_values)
         edited = context['defect']
-        context.update(tid=self.tid, form_error=form_error, record_version=row.get('record_version') or '',
+        context.update(photo_count=len(edited.get('defectPicsTids') or []) + len(edited.get('defectPicsAfterFixingTids') or []), tid=self.tid, form_error=form_error, record_version=row.get('record_version') or '',
                        can_respond=(edited['responsibleUserFid'] == self.user.get('fid') and edited['assignmentStatus'] != 'angenommen'), private=True, user=self.user,
-                       saved_action=self.request.GET.get('saved') in {'save', 'mail', 'accept', 'reject', 'photo_before', 'photo_after'})
+                       saved_action=self.request.GET.get('saved') in {'save', 'mail', 'accept', 'reject', 'photo_before', 'photo_after', 'replace_before', 'replace_after'})
         return self.render('defect_detail.html', context, status=status)

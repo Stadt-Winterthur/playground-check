@@ -72,19 +72,20 @@
   </details>{% endif %}
   <div class="defect-detail-columns">
     <section class="defect-section" aria-labelledby="defect-photos-title"><h2 id="defect-photos-title">{% tr "Fotos des Mangels" %}</h2>
-      {% if defect.defectPicsTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsTids %}<a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="{% tr "Mängelfoto" %} {{ forloop.counter }}" loading="lazy"></a>{% endfor %}</div>{% else %}<p class="muted">{% tr "Noch keine Fotos vorhanden." %}</p>{% endif %}
+      {% if defect.defectPicsTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsTids %}<div><a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="{% tr "Mängelfoto" %} {{ forloop.counter }}" loading="lazy"></a><form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/"><input type="hidden" name="tid" value="{{ tid }}"><input type="hidden" name="replace_tid" value="{{ photo }}"><label>{% tr "Foto ersetzen" %}<input type="file" name="picture" accept="image/jpeg,image/png" required></label><button type="submit" name="action" value="replace_before" class="secondary-button">{% tr "Ersetzen" %}</button></form></div>{% endfor %}</div>{% else %}<p class="muted">{% tr "Noch keine Fotos vorhanden." %}</p>{% endif %}
       {% include "photo_privacy_hint.html" %}
-      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/">
+      <p class="muted">{% tr "Maximal 3 Fotos pro Mangel (vor und nach Erledigung zusammen)." %}</p>
+      {% if photo_count < 3 %}<form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/">
         <input type="hidden" name="tid" value="{{ tid }}"><label for="defect-picture-before">{% tr "Foto hinzufügen (JPEG/PNG, max. 10 MiB)" %}</label><input id="defect-picture-before" type="file" name="picture" accept="image/jpeg,image/png" required><button type="submit" name="action" value="photo_before" class="secondary-button">{% tr "Foto hochladen" %}</button>
-      </form>
+      </form>{% endif %}
     </section>
     <section class="defect-section" aria-labelledby="defect-after-title"><h2 id="defect-after-title">{% tr "Fotos nach Mangelbeseitigung" %}</h2>
-      {% if defect.defectPicsAfterFixingTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsAfterFixingTids %}<a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="{% tr "Foto nach Beseitigung" %} {{ forloop.counter }}" loading="lazy"></a>{% endfor %}</div>{% else %}<p class="muted">{% tr "Noch keine Fotos vorhanden." %}</p>{% endif %}
+      {% if defect.defectPicsAfterFixingTids %}<div class="defect-photo-grid">{% for photo in defect.defectPicsAfterFixingTids %}<div><a href="{{ prefix }}/Defect/Picture/{{ photo }}/" target="_blank" rel="noopener"><img src="{{ prefix }}/Defect/Picture/{{ photo }}/?thumb=true" alt="{% tr "Foto nach Beseitigung" %} {{ forloop.counter }}" loading="lazy"></a><form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/"><input type="hidden" name="tid" value="{{ tid }}"><input type="hidden" name="replace_tid" value="{{ photo }}"><label>{% tr "Foto ersetzen" %}<input type="file" name="picture" accept="image/jpeg,image/png" required></label><button type="submit" name="action" value="replace_after" class="secondary-button">{% tr "Ersetzen" %}</button></form></div>{% endfor %}</div>{% else %}<p class="muted">{% tr "Noch keine Fotos vorhanden." %}</p>{% endif %}
       {% include "photo_privacy_hint.html" %}
       {% if not defect.done %}<p class="muted">{% tr "Fotos nach Mangelbeseitigung können erst hochgeladen werden, nachdem «Mangel erledigt» angekreuzt und gespeichert wurde." %}</p>{% endif %}
-      <form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/">
+      {% if photo_count < 3 %}<form method="post" enctype="multipart/form-data" action="{{ prefix }}/defect/">
         <input type="hidden" name="tid" value="{{ tid }}"><label for="defect-picture-after">{% tr "Foto hinzufügen (JPEG/PNG, max. 10 MiB)" %}</label><input id="defect-picture-after" type="file" name="picture" accept="image/jpeg,image/png" required {% if not defect.done %}disabled{% endif %}><button type="submit" name="action" value="photo_after" class="secondary-button" {% if not defect.done %}disabled{% endif %}>{% tr "Foto hochladen" %}</button>
-      </form>
+      </form>{% endif %}
     </section>
   </div>
   <section class="defect-section" aria-labelledby="defect-mail-title"><h2 id="defect-mail-title">{% tr "Infomail" %}</h2>

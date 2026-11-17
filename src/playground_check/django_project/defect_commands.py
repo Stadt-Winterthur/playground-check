@@ -128,11 +128,11 @@ def put_defect_picture(request, tid: int):
         return _respond(Response.text("Bild-Upload ist zu gross.", 413))
     if is_multipart(request):
         body, files = multipart_parts(request, {'picture', 'thumbnail'})
-        mapping(body, booleans=('afterFixing',))
+        mapping(body, booleans=('afterFixing',), integers=('replaceTid',))
         picture = image_file(files.get('picture'))
         thumbnail = image_file(files['thumbnail']) if files.get('thumbnail') else picture
     else:
-        body = object_body(legacy, strings=('base64StringPicture', 'base64StringPictureThumb'), booleans=('afterFixing',))
+        body = object_body(legacy, strings=('base64StringPicture', 'base64StringPictureThumb'), booleans=('afterFixing',), integers=('replaceTid',))
         picture = body.get('base64StringPicture') or ''
         thumbnail = body.get('base64StringPictureThumb') or ''
         for value in (picture, thumbnail):
@@ -141,8 +141,15 @@ def put_defect_picture(request, tid: int):
                 if error == 'Bild ist zu gross (maximal 10 MiB).':
                     raise UploadTooLarge()
                 return _respond(Response.text(error, 400))
+    raw_replace_tid = body.get('replaceTid')
+    try:
+        replace_tid = int(raw_replace_tid) if raw_replace_tid not in (None, '') else None
+    except (ValueError, TypeError):
+        return _respond(Response.text('Ungültige Foto-ID.', 400))
+    if replace_tid is not None and not 0 < replace_tid < 2**31:
+        return _respond(Response.text('Ungültige Foto-ID.', 400))
     with service.connect() as db:
-        if service._bool(body.get("afterFixing")):
+        if service._bool(body.get("afterFixing")) and replace_tid is None:
             # Lock the defect during the check and insert to prevent concurrent reopening.
             completion = db.execute(
                 'SELECT fid_erledigung AS done_by FROM "wgr_sp_insp_mangel" WHERE tid=%s FOR UPDATE',
@@ -154,9 +161,15 @@ def put_defect_picture(request, tid: int):
                 return _respond(Response.text(
                     "Fotos nach Mangelbeseitigung sind erst nach gespeicherter Erledigung erlaubt.", 409,
                 ))
-        row = service.picture_write_repository.insert_defect_picture(
-            db, tid, picture, thumbnail, service._bool(body.get("afterFixing")),
-        )
+        try:
+            row = service.picture_write_repository.save_defect_picture(
+                db, tid, picture, thumbnail, service._bool(body.get('afterFixing')),
+                replace_tid=replace_tid,
+            )
+        except service.picture_write_repository.DefectPhotoLimitError as exc:
+            return _respond(Response.text(str(exc), 409))
+        except service.picture_write_repository.DefectPhotoTargetError as exc:
+            return _respond(Response.text(str(exc), 404))
     return _respond(Response.json({"tid": row["tid"]}) if row else Response(b"", 400))
 
 
