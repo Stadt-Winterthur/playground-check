@@ -97,7 +97,21 @@ def login(request):
         return ui._render(request, 'gui_login.html', {'error': 'Ungültige Anmeldedaten.', 'email': email}, status=400)
     answer = _native(request, account_commands.login, {'mailAddress': email, 'passPhrase': password}, url='/Account/Login/')
     if answer.status_code != 200:
-        return ui._render(request, 'gui_login.html', {'error': 'Anmeldung fehlgeschlagen.', 'email': email}, status=401)
+        # The upstream proxy replaces HTTP 401 HTML responses with its own
+        # Unauthorized page. Keep the API's 401/429 semantics unchanged, but
+        # render expected browser-login failures as a proxy-safe form error.
+        if answer.status_code in (400, 401, 429):
+            message = ('Zu viele Anmeldeversuche. Bitte versuchen Sie es in Kürze erneut.'
+                       if answer.status_code == 429 else 'E-Mail-Adresse oder Passwort ist ungültig.')
+            response = ui._render(request, 'gui_login.html', {'error': message, 'email': email}, status=400)
+            if answer.status_code == 429 and answer.get('Retry-After'):
+                response['Retry-After'] = answer['Retry-After']
+            return response
+        LOG.error('Browser login failed due to an unexpected upstream status: %s', answer.status_code)
+        return ui._render(request, 'gui_login.html', {
+            'error': 'Anmeldung momentan nicht möglich. Bitte versuchen Sie es später erneut.',
+            'email': email,
+        }, status=503)
     next_url = ui._prefix(request) + '/'
     result = HttpResponseRedirect(next_url)
     # The existing account command returns Set-Cookie as an HTTP header.

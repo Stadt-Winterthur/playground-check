@@ -8,6 +8,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'playground_check.django_project
 import django
 django.setup()
 from django.http import HttpResponse
+from django.test import Client
 from django.test import RequestFactory
 from django.urls import resolve
 from playground_check.django_project import python_ui as ui, python_ui_workflows as workflows
@@ -39,6 +40,45 @@ class SingleWelcomePageTests(unittest.TestCase):
         self.assertEqual(response['Location'], prefix + '/')
         self.assertEqual(response.cookies[name].value, 'test-token')
         self.assertTrue(response.cookies[name]['httponly'])
+
+    def test_invalid_login_stays_in_app_behind_proxy(self):
+        prefix = '/stadtgruen/spielplatzkontrolle'
+        for status in (400, 401):
+            with self.subTest(status=status):
+                answer = HttpResponse('Invalid credentials', status=status)
+                with patch.object(workflows, '_native', return_value=answer):
+                    response = Client().post('/login/', {
+                        'email': 'test@example.org', 'password': 'wrong-password',
+                    }, SCRIPT_NAME=prefix)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response['X-UI-Original-Status'], '400')
+                self.assertEqual(response['X-UI-Outcome'], 'error')
+                self.assertIn('E-Mail-Adresse oder Passwort ist ungültig.'.encode(), response.content)
+                self.assertIn(b'test@example.org', response.content)
+                self.assertNotIn(b'wrong-password', response.content)
+                self.assertNotIn(b'Invalid credentials', response.content)
+                self.assertIn('no-store', response['Cache-Control'])
+                self.assertNotIn('Set-Cookie', response)
+
+    def test_login_rate_limit_stays_in_app_and_keeps_retry_after(self):
+        answer = HttpResponse('Too many requests', status=429)
+        answer['Retry-After'] = '3'
+        with patch.object(workflows, '_native', return_value=answer):
+            response = Client().post('/login/', {
+                'email': 'test@example.org', 'password': 'wrong-password',
+            })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Retry-After'], '3')
+        self.assertIn('Zu viele Anmeldeversuche'.encode(), response.content)
+
+    def test_login_server_error_remains_real_503(self):
+        answer = HttpResponse('Private backend detail', status=503)
+        with patch.object(workflows, '_native', return_value=answer):
+            response = Client().post('/login/', {
+                'email': 'test@example.org', 'password': 'wrong-password',
+            })
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn(b'Private backend detail', response.content)
 
     def test_authenticated_home_shows_canonical_welcome(self):
         request = RequestFactory().get('/')
