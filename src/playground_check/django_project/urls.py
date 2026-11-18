@@ -14,6 +14,7 @@ from .views import django_health, health, public_playgrounds, inspection_types, 
 
 from . import python_ui_workflows as gui_workflows
 from .privacy import imprint, privacy_notice
+from . import account_recovery
 
 from .localization import app_manifest
 
@@ -29,6 +30,9 @@ urlpatterns = [
     path("session/end/", gui_workflows.logout, name="python-ui-session-end"),
     path("logout/", gui_workflows.logout, name="python-ui-logout"),
     path("login/", gui_workflows.login, name="python-ui-login"),
+    path("register/", account_recovery.register, name="public-register"),
+    path("password/forgot/", account_recovery.forgot, name="public-password-forgot"),
+    path("password/set/<str:token>/", account_recovery.set_password, name="public-password-set"),
     path("defect/edit/", gui_workflows.defect_editor, name="python-ui-defect-edit"),
     path("device/edit/", gui_workflows.device_editor, name="python-ui-device-edit"),
     path("device/checkability/", gui_workflows.device_checkability, name="python-ui-device-checkability"),

@@ -491,7 +491,7 @@ def admin_users(request):
                     'mailAddress': email, 'firstName': first_name, 'lastName': last_name,
                     'role': role, 'responsibility': responsibility,
                     'active': request.POST.get('active') == 'on',
-                    'isNew': request.POST.get('isNew') == '1',
+                    'isNew': request.POST.get('isNew') == '1' and request.POST.get('active') != 'on',
                 }
                 answer = _native(request, account_commands.update_user, payload,
                                  method='put', url='/Account/Users/')
@@ -520,7 +520,7 @@ def admin_users(request):
         form_error = 'Benutzer wurde nicht gefunden.'
         status = 404
     visible = [row for row in records
-               if (show_inactive or row.get('active'))
+               if (show_inactive or row.get('active') or row.get('is_new'))
                and (not query or query.casefold() in ' '.join(str(row.get(k) or '') for k in
                     ('first_name', 'last_name', 'email', 'role', 'responsibility')).casefold())]
     roles = [('administrator', 'Administrator'), ('inspector', 'Kontrolleur'),

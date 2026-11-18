@@ -55,14 +55,9 @@ def login(request):
                 response.headers.append(service._auth_cookie(token))
                 return to_http_response(response)
             return to_http_response(Response.text("Keine oder falsche Login-Daten.", 401))
-        # Preserve legacy dryRun behavior until changed deliberately.
-        service.user_write_repository.register_pending_user(
-            db, body.get("lastName") or "", body.get("firstName") or "", email,
-            service.hash_passphrase(password, email),
-        )
-    return to_http_response(Response.text(
-        service.UNAUTHORIZED + "Der Administrator wird informiert und wird Ihnen gegebenenfalls den Zugriff gewähren.", 401
-    ))
+        # Registration is never a side effect of a failed login. Unknown
+        # identities must use the public verified registration flow instead.
+        return to_http_response(Response.text("Keine oder falsche Login-Daten.", 401))
 
 
 @operation_errors()
@@ -100,6 +95,10 @@ def update_user(request):
         if old["role"] == "administrator" and active_admins == 1:
             if body.get("role") != "administrator" or not service._bool(body.get("active")):
                 return to_http_response(Response.json({"errorMessage": "SPK-3"}))
+        # A pending registration cannot be activated without a verified,
+        # completed password setup. The admin must still explicitly approve it.
+        if service._bool(body.get("active")) and not old.get("pwd"):
+            return to_http_response(Response.json({"errorMessage": "SPK-3"}))
         affected = service.user_write_repository.update_user(
             db, email, body.get("lastName") or "", body.get("firstName") or "",
             role, responsibility or None, service._bool(body.get("active")), service._bool(body.get("isNew")),

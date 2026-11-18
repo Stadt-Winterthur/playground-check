@@ -124,7 +124,7 @@ class TransactionAndHistoryTests(unittest.TestCase):
     def test_unexpected_password_update_rolls_back(self):
         db=MagicMock();db.__enter__.return_value=db
         r=RequestFactory().put('/Account/Users/?changePassphrase=true',json.dumps({'mailAddress':'other@example.org','role':'inspector','active':True,'passPhrase':'long-password'}),content_type='application/json')
-        with patch.object(service,'require_user',return_value=({**USER,'role':'administrator'},None)),patch.object(service,'connect',return_value=db),patch.object(service.user_repository,'users_by_email',return_value=[{'role':'inspector'}]),patch.object(service.user_write_repository,'active_admin_count',return_value=2),patch.object(service.user_write_repository,'update_user',return_value=1),patch.object(service.user_write_repository,'update_password',return_value=0):
+        with patch.object(service,'require_user',return_value=({**USER,'role':'administrator'},None)),patch.object(service,'connect',return_value=db),patch.object(service.user_repository,'users_by_email',return_value=[{'role':'inspector', 'pwd':'existing-password-hash'}]),patch.object(service.user_write_repository,'active_admin_count',return_value=2),patch.object(service.user_write_repository,'update_user',return_value=1),patch.object(service.user_write_repository,'update_password',return_value=0):
             result=account_commands.update_user(r)
         self.assertEqual(json.loads(result.content),{'errorMessage':'SPK-3'})
         self.assertIs(db.__exit__.call_args.args[0],ValueError)

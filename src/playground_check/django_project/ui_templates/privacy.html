@@ -8,7 +8,7 @@
   </section>
   <section aria-labelledby="daten">
     <h2 id="daten">{% tr "Daten und Empfänger" %}</h2>
-    <p>{% tr "Bearbeitet werden Kontodaten einschliesslich Passwort-Hash, Rolle und Zuständigkeit, namentliche Kontroll- und Zuweisungshistorien, Zeitpunkte, Bemerkungen, Fotos und Dokumente. Bei unbekannter E-Mail-Adresse entsteht beim Anmelden ein inaktiver Zugangsantrag. Technische Zugriffsdaten, etwa IP-Adresse, Zeitpunkt und Fehlerangaben, können für Betrieb und Sicherheit protokolliert werden." %}</p>
+    <p>{% tr "Bearbeitet werden Kontodaten einschliesslich Passwort-Hash, Rolle und Zuständigkeit, namentliche Kontroll- und Zuweisungshistorien, Zeitpunkte, Bemerkungen, Fotos und Dokumente. Bei einer Registrierung wird zunächst ein inaktives Konto angelegt, das vor dem Zugriff administrativ freigeschaltet werden muss. Für Registrierung und Passwortwiederherstellung werden zeitlich begrenzte E-Mail-Links verwendet. Technische Zugriffsdaten, etwa IP-Adresse, Zeitpunkt und Fehlerangaben, können für Betrieb und Sicherheit protokolliert werden." %}</p>
     <p>{% tr "Freigeschaltete Personen sehen die in der Anwendung bereitgestellten Fachdaten und Personenzuordnungen; aktive Kontaktdaten dienen der Zuweisung. Infomails an die zugewiesene Person enthalten Mängel- und Geräteangaben, Bemerkungen, den Absendernamen und vorhandene Mängelfotos." %}</p>
     {% if operators_text %}<p class="privacy-operational-text">{{ operators_text|linebreaksbr }}</p>{% else %}
     <p>{% tr "Auskünfte zu Betriebs- und Supportstellen sowie Speicher- und Zugriffsorten erteilt die Kontaktstelle." %}</p>{% endif %}

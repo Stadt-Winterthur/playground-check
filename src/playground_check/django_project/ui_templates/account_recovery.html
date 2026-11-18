@@ -1,0 +1,31 @@
+<section class="admin-editor" style="max-width:38rem">
+{% if mode == 'register' %}
+<h1>{% tr "Registrieren" %}</h1>
+<p>{% tr "Nach der Registrierung muss ein Administrator Ihr Konto freischalten." %}</p>
+{% elif mode == 'forgot' %}
+<h1>{% tr "Passwort vergessen?" %}</h1>
+{% elif mode == 'set' %}
+<h1>{% tr "Neues Passwort festlegen" %}</h1>
+{% else %}
+<h1>{% tr "Passwort aktualisiert" %}</h1>
+{% endif %}
+{% include "ui_error.html" with message=error %}
+{% if message %}<p role="status" class="admin-notice">{{ message }}</p>{% endif %}
+{% if mode == 'register' or mode == 'forgot' %}
+<form method="post" action="{{ prefix }}/{% if mode == 'register' %}register{% else %}password/forgot{% endif %}/">
+{% if mode == 'register' %}
+<p><label>{% tr "Vorname" %} <input type="text" name="first_name" maxlength="80" required autocomplete="given-name"></label></p>
+<p><label>{% tr "Nachname" %} <input type="text" name="last_name" maxlength="80" required autocomplete="family-name"></label></p>
+{% endif %}
+<p><label>{% tr "E-Mail-Adresse" %} <input type="email" name="email" maxlength="80" value="{{ email }}" required autocomplete="email"></label></p>
+<button type="submit" class="primary-button">{% tr "E-Mail-Link anfordern" %}</button>
+</form>
+{% elif mode == 'set' %}
+<form method="post" action="{{ prefix }}/password/set/{{ token }}/" autocomplete="off">
+<p><label>{% tr "Neues Passwort" %} <input type="password" name="password" minlength="12" maxlength="1024" required autocomplete="new-password"></label></p>
+<p><label>{% tr "Passwort wiederholen" %} <input type="password" name="confirm" minlength="12" maxlength="1024" required autocomplete="new-password"></label></p>
+<button type="submit" class="primary-button">{% tr "Passwort speichern" %}</button>
+</form>
+{% endif %}
+<p><a href="{{ prefix }}/login/">{% tr "Zur Anmeldung" %}</a></p>
+</section>
